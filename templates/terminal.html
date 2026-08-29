@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}终端 · ply面板{% endblock %}
+
+{% block page_title %}终端{% endblock %}
+
+{% block content %}
+	<div class="terminal-page">
+		<!-- 终端上方工具栏：左侧添加用户（自动登录），右侧字体缩放 -->
+		<div class="terminal-toolbar">
+			<div class="toolbar-left">
+				<button
+					id="addUserBtn"
+					class="btn"
+					type="button"
+					title="添加用户：用于自动登录（暂未开放）"
+				>添加用户</button>
+			</div>
+			<div class="toolbar-right">
+				<button id="fontMinus" class="btn toolbar-icon" type="button" title="缩小字体">−</button>
+				<span id="fontSizeLabel" class="font-size-label">14px</span>
+				<button id="fontPlus" class="btn toolbar-icon" type="button" title="放大字体">＋</button>
+			</div>
+		</div>
+
+		<!-- 黑色终端框 -->
+		<div class="terminal-shell">
+			<div id="terminal" class="terminal-box"></div>
+
+			<!-- 开始门控：点击"开始"后才能进入终端，否则不进入 -->
+			<div id="terminalGate" class="terminal-gate">
+				<button id="startBtn" class="btn btn-primary start-btn" type="button">开始</button>
+				<p class="gate-hint">点击「开始」进入终端</p>
+			</div>
+		</div>
+
+		<!-- 底部提示（如：添加用户功能暂未开放） -->
+		<div id="termHint" class="term-hint" hidden></div>
+	</div>
+{% endblock %}
+
+{% block scripts %}
+	<link
+		rel="stylesheet"
+		href="{{ url_for('static', filename='js/xterm/xterm.css') }}"
+	/>
+	<script src="{{ url_for('static', filename='js/xterm/xterm.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/xterm/addon-fit.js') }}"></script>
+
+	<script>
+		(function () {
+			"use strict";
+
+			var gate = document.getElementById("terminalGate");
+			var startBtn = document.getElementById("startBtn");
+			var addUserBtn = document.getElementById("addUserBtn");
+			var fontPlus = document.getElementById("fontPlus");
+			var fontMinus = document.getElementById("fontMinus");
+			var fontSizeLabel = document.getElementById("fontSizeLabel");
+			var termHint = document.getElementById("termHint");
+
+			var term = null;
+			var fitAddon = null;
+			var socket = null;
+			var fontSize = 14;
+			var MIN_FONT = 10;
+			var MAX_FONT = 28;
+
+			function sendResize() {
+				if (
+					socket &&
+					socket.readyState === WebSocket.OPEN &&
+					term
+				) {
+					socket.send(
+						JSON.stringify({
+							type: "resize",
+							cols: term.cols,
+							rows: term.rows,
+						})
+					);
+				}
+			}
+
+			function applyFontSize() {
+				if (term) {
+					term.options.fontSize = fontSize;
+					fontSizeLabel.textContent = fontSize + "px";
+					if (fitAddon) {
+						fitAddon.fit();
+					}
+					sendResize();
+					term.focus();
+				}
+			}
+
+			var wsUrl =
+				(location.protocol === "https:" ? "wss://" : "ws://") +
+				location.host +
+				"/terminal/ws";
+
+			function startTerminal() {
+				gate.hidden = true;
+
+				term = new Terminal({
+					cursorBlink: true,
+					convertEol: true,
+					fontFamily:
+						'"JetBrainsMonoNF", "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace',
+					fontSize: fontSize,
+					lineHeight: 1.2,
+					scrollback: 5000,
+					theme: {
+						background: "#0b0e14",
+						foreground: "#e6e6e6",
+						cursor: "#e6e6e6",
+					},
+				});
+
+				fitAddon = new FitAddon.FitAddon();
+				term.loadAddon(fitAddon);
+				term.open(document.getElementById("terminal"));
+				fitAddon.fit();
+
+				socket = new WebSocket(wsUrl);
+
+				socket.onopen = function () {
+					sendResize();
+					term.focus();
+				};
+
+				socket.onmessage = function (ev) {
+					term.write(ev.data);
+				};
+
+				socket.onclose = function () {
+					term.write("\r\n\x1b[33m[连接已断开]\x1b[0m\r\n");
+				};
+
+				socket.onerror = function () {
+					term.write("\r\n\x1b[31m[连接出错]\x1b[0m\r\n");
+				};
+
+				term.onData(function (data) {
+					if (socket && socket.readyState === WebSocket.OPEN) {
+						socket.send(data);
+					}
+				});
+
+				term.onResize(function () {
+					sendResize();
+				});
+
+				window.addEventListener("resize", function () {
+					if (fitAddon) {
+						fitAddon.fit();
+					}
+					sendResize();
+				});
+			}
+
+			startBtn.addEventListener("click", startTerminal);
+
+			// 添加用户：仅展示该功能，暂不实现自动登录
+			addUserBtn.addEventListener("click", function () {
+				termHint.textContent = "自动登录（添加用户）功能暂未开放";
+				termHint.hidden = false;
+				clearTimeout(addUserBtn._t);
+				addUserBtn._t = setTimeout(function () {
+					termHint.hidden = true;
+				}, 2500);
+			});
+
+			fontPlus.addEventListener("click", function () {
+				if (fontSize < MAX_FONT) {
+					fontSize += 1;
+					applyFontSize();
+				}
+			});
+
+			fontMinus.addEventListener("click", function () {
+				if (fontSize > MIN_FONT) {
+					fontSize -= 1;
+					applyFontSize();
+				}
+			});
+		})();
+	</script>
+{% endblock %}

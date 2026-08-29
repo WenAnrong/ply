@@ -30,6 +30,13 @@
 							</span>
 							<span>仪表盘</span>
 						</a>
+						<a href="{{ url_for('terminal.index') }}" class="nav-link {% if request.path == '/terminal' %}active{% endif %}">
+							<span class="nav-ico">
+								<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.5" ry="2.5"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+							</span>
+							<span>终端</span>
+						</a>
+
 					</section>
 
 					<section class="nav-section">
@@ -40,7 +47,9 @@
 							</span>
 							<span>关于</span>
 						</a>
+
 					</section>
+
 				</nav>
 
 			</aside>

@@ -239,24 +239,14 @@ ol {
     flex-shrink: 0;
 }
 
-/* 侧边栏底部 */
-.sidebar-footer {
-    padding: 16px 20px;
-    font-size: 0.8rem;
-    color: var(--sidebar-muted);
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.sidebar-footer p {
-    margin: 0;
-}
-
 /* ---------- 5. 顶栏 ---------- */
 .content {
     flex: 1;
     display: flex;
     flex-direction: column;
     min-width: 0;
+    height: 100vh;
+    overflow: hidden;
 }
 
 .topbar {
@@ -319,14 +309,20 @@ ol {
 /* ---------- 6. 内容区 & 页脚 ---------- */
 .main {
     flex: 1;
+    min-height: 0;
     padding: 24px;
+    overflow-y: auto;
 }
 
 .footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
     padding: 16px 24px;
     color: var(--text-muted);
     font-size: 0.85rem;
     border-top: 1px solid var(--border);
+    background: var(--surface);
 }
 
 .footer p {
@@ -350,6 +346,7 @@ ol {
     border: 1px solid var(--border);
     border-radius: var(--radius);
     overflow: hidden;
+    margin-bottom: 8px;
 }
 
 .panel-header {
@@ -507,10 +504,6 @@ textarea:focus {
     font-size: 0.82rem;
     text-transform: uppercase;
     letter-spacing: 0.03em;
-}
-
-.table tr:last-child td {
-    border-bottom: none;
 }
 
 /* ---------- 8. 响应式 ---------- */

@@ -13,24 +13,49 @@
 	<div class="panel">
 		<div class="panel-header">运行数据</div>
 		<div class="panel-body">
-			<div class="stats">
-				<div class="stat">
-					<span class="stat-label">CPU</span>
-					<span class="stat-value">{{cpu}}</span>
-				</div>
-				<div class="stat">
-					<span class="stat-label">内存</span>
-					<span class="stat-value">{{memory}}</span>
-				</div>
-				<div class="stat">
-					<span class="stat-label">磁盘</span>
-					<span class="stat-value">{{disk}}</span>
-				</div>
-				<div class="stat">
-					<span class="stat-label">在线时长</span>
-					<span class="stat-value">{{uptime}}</span>
-				</div>
+			<div
+				hx-get="{{ url_for('dashboard.stats') }}"
+				hx-trigger="every 3s"
+				hx-swap="innerHTML"
+			>
+				{% include "partials/stats.html" %}
 			</div>
+		</div>
+	</div>
+
+	<div class="panel">
+		<div class="panel-header">系统信息</div>
+		<div class="panel-body">
+			<table class="table">
+				<tr>
+					<th>主机名称</th>
+					<td>{{hostname}}</td>
+				</tr>
+				<tr>
+					<th>发行版本</th>
+					<td>{{os_release}}</td>
+				</tr>
+				<tr>
+					<th>内核版本</th>
+					<td>{{kernel}}</td>
+				</tr>
+				<tr>
+					<th>系统类型</th>
+					<td>{{machine}}</td>
+				</tr>
+				<tr>
+					<th>主机地址</th>
+					<td>{{host_ip}}</td>
+				</tr>
+				<tr>
+					<th>启动时间</th>
+					<td>{{boot_time}}</td>
+				</tr>
+				<tr>
+					<th>运行时间</th>
+					<td>{{uptime}}</td>
+				</tr>
+			</table>
 		</div>
 	</div>
 {% endblock %}

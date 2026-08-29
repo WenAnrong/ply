@@ -1,0 +1,11 @@
+<!-- 继承 base.html -->
+{% extends "base.html" %}
+
+<!-- 覆盖父模板的 title block -->
+{% block title %}ply面板{% endblock %}
+
+<!-- 填充父模板的 content block -->
+{% block content %}
+    <h2>欢迎来到 ply面板</h2>
+    <h3>{{aaa}}</h3>
+{% endblock %}

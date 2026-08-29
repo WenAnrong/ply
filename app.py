@@ -1,12 +1,25 @@
+from datetime import datetime
 from flask import Flask
 from flask import render_template
+
+from views.about import about_bp
+from views.dashboard import dashboard_bp
 
 app = Flask(__name__)
 
 
-@app.route("/")
-def index():
-    return render_template("index.html", aaa="这是一个测试")
+@app.context_processor
+def inject_globals():
+    return {"now_year": datetime.now().year}
+
+
+app.register_blueprint(dashboard_bp)
+app.register_blueprint(about_bp)
+
+
+@app.errorhandler(404)
+def not_found(error):
+    return render_template("404.html"), 404
 
 
 if __name__ == "__main__":

@@ -1,0 +1,36 @@
+<!-- 继承 base.html -->
+{% extends "base.html" %}
+
+<!-- 覆盖父模板的 title block -->
+{% block title %}仪表盘 · ply面板{% endblock %}
+
+<!-- 覆盖页面标题 -->
+{% block page_title %}仪表盘{% endblock %}
+
+<!-- 填充父模板的 content block -->
+{% block content %}
+
+	<div class="panel">
+		<div class="panel-header">运行数据</div>
+		<div class="panel-body">
+			<div class="stats">
+				<div class="stat">
+					<span class="stat-label">CPU</span>
+					<span class="stat-value">{{cpu}}</span>
+				</div>
+				<div class="stat">
+					<span class="stat-label">内存</span>
+					<span class="stat-value">{{memory}}</span>
+				</div>
+				<div class="stat">
+					<span class="stat-label">磁盘</span>
+					<span class="stat-value">{{disk}}</span>
+				</div>
+				<div class="stat">
+					<span class="stat-label">在线时长</span>
+					<span class="stat-value">{{uptime}}</span>
+				</div>
+			</div>
+		</div>
+	</div>
+{% endblock %}

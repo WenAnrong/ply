@@ -1,0 +1,27 @@
+<!-- 继承 base.html -->
+{% extends "base.html" %}
+
+<!-- 覆盖父模板的 title block -->
+{% block title %}关于 · ply面板{% endblock %}
+
+<!-- 覆盖页面标题 -->
+{% block page_title %}关于{% endblock %}
+
+<!-- 填充父模板的 content block -->
+{% block content %}
+	<h2 class="page-title">关于 ply面板</h2>
+	<p class="page-subtitle">ply 服务器管理面板</p>
+
+	<div class="card">
+		<h3>项目介绍</h3>
+		<p>
+			这是一个使用 Flask 构建的轻量级服务器管理面板，界面基于 Pico CSS，
+			并添加了适合管理后台的侧边栏导航布局。
+		</p>
+		<ul>
+			<li>框架：Flask</li>
+			<li>样式：Pico CSS + 自定义样式</li>
+			<li>交互：htmx</li>
+		</ul>
+	</div>
+{% endblock %}

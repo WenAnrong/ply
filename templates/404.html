@@ -1,0 +1,17 @@
+<!-- 继承 base.html -->
+{% extends "base.html" %}
+
+<!-- 覆盖父模板的 title block -->
+{% block title %}404 · ply面板{% endblock %}
+
+<!-- 覆盖页面标题 -->
+{% block page_title %}404{% endblock %}
+
+<!-- 填充父模板的 content block -->
+{% block content %}
+	<div class="error-page">
+		<div class="error-code">404</div>
+		<p class="error-message">抱歉，你访问的页面不存在或已被移除。</p>
+		<a class="btn btn-primary" href="{{ url_for('dashboard.index') }}">返回首页</a>
+	</div>
+{% endblock %}

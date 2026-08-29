@@ -13,13 +13,18 @@
 	<div class="panel">
 		<div class="panel-header">运行数据</div>
 		<div class="panel-body">
+			<!-- 可见结构（含悬浮面板）保持固定，只更新数值 -->
+			<div id="stats-live">
+				{% include "partials/stats.html" %}
+			</div>
+			<!-- 隐藏的数据刷新容器：只灌入最新数值，不重建悬浮面板 -->
 			<div
+				id="stats-update"
 				hx-get="{{ url_for('dashboard.stats') }}"
 				hx-trigger="every 3s"
 				hx-swap="innerHTML"
-			>
-				{% include "partials/stats.html" %}
-			</div>
+				hidden
+			></div>
 		</div>
 	</div>
 
@@ -58,4 +63,28 @@
 			</table>
 		</div>
 	</div>
+{% endblock %}
+
+{% block scripts %}
+	<script>
+		(function () {
+			const updater = document.getElementById("stats-update");
+			if (!updater) return;
+
+			updater.addEventListener("htmx:afterSwap", function () {
+				updater.querySelectorAll("[data-stat]").forEach(function (src) {
+					const key = src.getAttribute("data-stat");
+					const dst = document.querySelector(
+						'#stats-live [data-stat="' + key + '"]'
+					);
+					if (!dst) return;
+					if (src.tagName === "PROGRESS") {
+						dst.value = src.value;
+					} else {
+						dst.textContent = src.textContent;
+					}
+				});
+			});
+		})();
+	</script>
 {% endblock %}

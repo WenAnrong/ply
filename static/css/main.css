@@ -345,7 +345,7 @@ ol {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    overflow: hidden;
+    overflow: visible;
     margin-bottom: 8px;
 }
 
@@ -353,6 +353,7 @@ ol {
     padding: 16px 24px;
     border-bottom: 1px solid var(--border);
     font-weight: 600;
+    border-radius: var(--radius) var(--radius) 0 0;
 }
 
 .panel-body {
@@ -385,6 +386,138 @@ ol {
     font-size: 1.15rem;
     font-weight: 600;
     color: var(--text);
+}
+
+.stat-bar {
+    display: block;
+    width: 100%;
+    height: 6px;
+    margin-top: 4px;
+    border: none;
+    border-radius: 999px;
+    background: var(--border);
+    overflow: hidden;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+/* WebKit / Chromium */
+.stat-bar::-webkit-progress-bar {
+    background: var(--border);
+    border-radius: 999px;
+}
+
+.stat-bar::-webkit-progress-value {
+    background: var(--primary);
+    border-radius: 999px;
+    transition: width 0.3s ease;
+}
+
+/* Firefox */
+.stat-bar::-moz-progress-bar {
+    background: var(--primary);
+    border-radius: 999px;
+}
+
+/* 内存 / 磁盘 / CPU 统计悬浮详请 */
+.stat--mem,
+.stat--disk,
+.stat--cpu {
+    position: relative;
+    cursor: help;
+}
+
+.stat-tip {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    min-width: 190px;
+    max-width: 320px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 10px 12px;
+    background: var(--sidebar-bg);
+    color: #fff;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.22);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: auto;
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+    z-index: 40;
+}
+
+.stat--mem:hover .stat-tip,
+.stat--mem:focus-visible .stat-tip,
+.stat--disk:hover .stat-tip,
+.stat--disk:focus-visible .stat-tip,
+.stat--cpu:hover .stat-tip,
+.stat--cpu:focus-visible .stat-tip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* 指向卡片的箭头 */
+.stat-tip::before {
+    content: "";
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 7px solid transparent;
+    border-bottom-color: var(--sidebar-bg);
+}
+
+.stat-tip-title {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+
+.stat-tip-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    margin: 3px 0;
+    color: var(--sidebar-muted);
+}
+
+.stat-tip-row b {
+    color: #fff;
+    font-weight: 500;
+}
+
+.stat-tip-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.stat-tip-sub {
+    color: var(--sidebar-muted);
+    font-size: 0.75rem;
+    margin: -1px 0 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.stat-tip-sub:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+    margin-bottom: 0;
 }
 
 /* 页面标题 */

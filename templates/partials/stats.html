@@ -1,14 +1,56 @@
 <div class="stats">
-	<div class="stat">
-		<span class="stat-label">CPU</span>
-		<span class="stat-value">{{cpu}}</span>
+	<!-- cpu -->
+	<div class="stat stat--cpu" tabindex="0">
+		<span class="stat-label">CPU使用率</span>
+		<span class="stat-value" data-stat="cpu-use">{{cpu_use}}</span>
+		<progress class="stat-bar" data-stat="cpu-percent" value="{{cpu_percent}}" max="100"></progress>
+		<div class="stat-tip" role="tooltip">
+			<span class="stat-tip-title">CPU详情</span>
+			<div class="stat-tip-row"><span>物理核心</span><b data-stat="cpu-physical">{{cpu_detail.physical}}</b></div>
+			<div class="stat-tip-row"><span>逻辑核心</span><b data-stat="cpu-logical">{{cpu_detail.logical}}</b></div>
+			<div class="stat-tip-row"><span>CPU频率</span><b data-stat="cpu-freq">{{cpu_detail.freq}}</b></div>
+		</div>
 	</div>
-	<div class="stat">
+
+	<!-- 内存 -->
+	<div class="stat stat--mem" tabindex="0">
 		<span class="stat-label">内存</span>
-		<span class="stat-value">{{memory}}</span>
+		<span class="stat-value" data-stat="memory-value">{{memory_used}} / {{memory_total}}</span>
+		<progress class="stat-bar" data-stat="memory-percent" value="{{memory_percent}}" max="100"></progress>
+		<div class="stat-tip" role="tooltip">
+			<span class="stat-tip-title">内存详情</span>
+			<div class="stat-tip-row"><span>总数</span><b data-stat="mem-total">{{memory_detail.total}}</b></div>
+			<div class="stat-tip-row"><span>已用</span><b data-stat="mem-used">{{memory_detail.used}}</b></div>
+			<div class="stat-tip-row"><span>共享</span><b data-stat="mem-shared">{{memory_detail.shared}}</b></div>
+			<div class="stat-tip-row"><span>缓存</span><b data-stat="mem-cached">{{memory_detail.cached}}</b></div>
+			<div class="stat-tip-row"><span>可用</span><b data-stat="mem-available">{{memory_detail.available}}</b></div>
+			<div class="stat-tip-row"><span>空闲</span><b data-stat="mem-free">{{memory_detail.free}}</b></div>
+		</div>
 	</div>
-	<div class="stat">
-		<span class="stat-label">磁盘</span>
-		<span class="stat-value">{{disk}}</span>
+
+	<!-- swap -->
+	<div class="stat" tabindex="0">
+		<span class="stat-label">Swap</span>
+		<span class="stat-value" data-stat="swap-value">{{swap_used}} / {{swap_total}}</span>
+		<progress class="stat-bar" data-stat="swap-percent" value="{{swap_percent}}" max="100"></progress>
+	</div>
+
+	<!-- 磁盘 -->
+	<div class="stat stat--disk" tabindex="0">
+		<span class="stat-label">磁盘({{disk_mount}})</span>
+		<span class="stat-value" data-stat="disk-value">{{disk_used}} / {{disk_total}}</span>
+		<progress class="stat-bar" data-stat="disk-percent" value="{{disk_percent}}" max="100"></progress>
+		<div class="stat-tip" role="tooltip">
+			<span class="stat-tip-title">磁盘详情</span>
+			{% for d in disk_details %}
+			<div class="stat-tip-row">
+				<span class="stat-tip-name" data-stat="disk-{{loop.index0}}-mount">{{d.mount}}</span>
+				<b data-stat="disk-{{loop.index0}}-percent">{{d.percent}}%</b>
+			</div>
+			<div class="stat-tip-sub" data-stat="disk-{{loop.index0}}-sub">{{d.device}} · {{d.fstype}} · {{d.used}} / {{d.total}}</div>
+			{% else %}
+			<div class="stat-tip-row"><span class="stat-tip-name">暂无磁盘</span><b>—</b></div>
+			{% endfor %}
+		</div>
 	</div>
 </div>

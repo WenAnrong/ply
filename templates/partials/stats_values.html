@@ -1,0 +1,25 @@
+<!-- CPU -->
+<span data-stat="cpu-use">{{cpu_use}}</span>
+<progress data-stat="cpu-percent" value="{{cpu_percent}}" max="100"></progress>
+<b data-stat="cpu-physical">{{cpu_detail.physical}}</b>
+<b data-stat="cpu-logical">{{cpu_detail.logical}}</b>
+<b data-stat="cpu-freq">{{cpu_detail.freq}}</b>
+<!-- 内存 -->
+<span data-stat="memory-value">{{memory_used}} / {{memory_total}}</span>
+<progress data-stat="memory-percent" value="{{memory_percent}}" max="100"></progress>
+<!-- swap -->
+<span data-stat="swap-value">{{swap_used}} / {{swap_total}}</span>
+<!-- 磁盘 -->
+<span data-stat="disk-value">{{disk_used}} / {{disk_total}}</span>
+<progress data-stat="disk-percent" value="{{disk_percent}}" max="100"></progress>
+<span data-stat="mem-total">{{memory_detail.total}}</span>
+<span data-stat="mem-used">{{memory_detail.used}}</span>
+<span data-stat="mem-shared">{{memory_detail.shared}}</span>
+<span data-stat="mem-cached">{{memory_detail.cached}}</span>
+<span data-stat="mem-available">{{memory_detail.available}}</span>
+<span data-stat="mem-free">{{memory_detail.free}}</span>
+{% for d in disk_details %}
+<span data-stat="disk-{{loop.index0}}-mount">{{d.mount}}</span>
+<b data-stat="disk-{{loop.index0}}-percent">{{d.percent}}%</b>
+<span data-stat="disk-{{loop.index0}}-sub">{{d.device}} · {{d.fstype}} · {{d.used}} / {{d.total}}</span>
+{% endfor %}

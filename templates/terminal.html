@@ -13,8 +13,10 @@
 					id="addUserBtn"
 					class="btn"
 					type="button"
-					title="添加用户：用于自动登录（暂未开放）"
 				>添加用户</button>
+			</div>
+			<div>
+				<!-- TODO: 添加用户后在这显示和选择 -->
 			</div>
 			<div class="toolbar-right">
 				<button id="fontMinus" class="btn toolbar-icon" type="button" title="缩小字体">−</button>
@@ -33,9 +35,6 @@
 				<p class="gate-hint">点击「开始」进入终端</p>
 			</div>
 		</div>
-
-		<!-- 底部提示（如：添加用户功能暂未开放） -->
-		<div id="termHint" class="term-hint" hidden></div>
 	</div>
 {% endblock %}
 
@@ -48,68 +47,75 @@
 	<script src="{{ url_for('static', filename='js/xterm/addon-fit.js') }}"></script>
 
 	<script>
+		// IIFE（立即执行函数）：把变量都包在局部作用域里，避免污染全局
 		(function () {
 			"use strict";
 
-			var gate = document.getElementById("terminalGate");
-			var startBtn = document.getElementById("startBtn");
-			var addUserBtn = document.getElementById("addUserBtn");
-			var fontPlus = document.getElementById("fontPlus");
-			var fontMinus = document.getElementById("fontMinus");
-			var fontSizeLabel = document.getElementById("fontSizeLabel");
-			var termHint = document.getElementById("termHint");
+			// ===== 从页面 DOM 中取出需要用到的元素 =====
+			var gate = document.getElementById("terminalGate"); // 开始门控遮罩层
+			var startBtn = document.getElementById("startBtn"); // “开始”按钮
+			var fontPlus = document.getElementById("fontPlus"); // 放大字体按钮
+			var fontMinus = document.getElementById("fontMinus"); // 缩小字体按钮
+			var fontSizeLabel = document.getElementById("fontSizeLabel"); // 显示当前字号
 
-			var term = null;
-			var fitAddon = null;
-			var socket = null;
-			var fontSize = 14;
-			var MIN_FONT = 10;
-			var MAX_FONT = 28;
+			// ===== 全局状态变量 =====
+			var term = null; // xterm.js 终端实例
+			var fitAddon = null; // 自动适配容器大小的插件
+			var socket = null; // 与后端通信的 WebSocket
+			var fontSize = 14; // 当前字号（默认 14px）
+			var MIN_FONT = 10; // 字号下限
+			var MAX_FONT = 28; // 字号上限
 
+			// 把当前终端行列数通过 WebSocket 通知后端，让 PTY 同步窗口大小
 			function sendResize() {
 				if (
 					socket &&
-					socket.readyState === WebSocket.OPEN &&
+					socket.readyState === WebSocket.OPEN && // 连接还没建立成功就不发
 					term
 				) {
 					socket.send(
 						JSON.stringify({
-							type: "resize",
-							cols: term.cols,
-							rows: term.rows,
+							type: "resize", // 消息类型：控制指令
+							cols: term.cols, // 当前列数
+							rows: term.rows, // 当前行数
 						})
 					);
 				}
 			}
 
+			// 应用字号：更新终端、标签、重新适配布局，并通知后端 resize
 			function applyFontSize() {
 				if (term) {
-					term.options.fontSize = fontSize;
-					fontSizeLabel.textContent = fontSize + "px";
+					term.options.fontSize = fontSize; // 修改 xterm 字号
+					fontSizeLabel.textContent = fontSize + "px"; // 更新界面文字
 					if (fitAddon) {
-						fitAddon.fit();
+						fitAddon.fit(); // 重新计算终端占满容器
 					}
-					sendResize();
-					term.focus();
+					sendResize(); // 同步新的行列数给后端
+					term.focus(); // 保持焦点，方便继续输入
 				}
 			}
 
+			// 根据当前页面协议（http/https）拼出对应的 WebSocket 地址
 			var wsUrl =
 				(location.protocol === "https:" ? "wss://" : "ws://") +
 				location.host +
 				"/terminal/ws";
 
+			// 点击“开始”后真正初始化终端
 			function startTerminal() {
+				// 隐藏开始门控遮罩
 				gate.hidden = true;
 
+				// 创建 xterm.js 终端实例，配置外观与行为
 				term = new Terminal({
-					cursorBlink: true,
-					convertEol: true,
+					cursorBlink: true, // 光标闪烁
+					convertEol: true, // 把 \n 自动转为 \r\n，避免换行错乱
 					fontFamily:
 						'"JetBrainsMonoNF", "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace',
-					fontSize: fontSize,
-					lineHeight: 1.2,
-					scrollback: 5000,
+					fontSize: fontSize, // 初始字号
+					lineHeight: 1.2, // 行高
+					scrollback: 5000, // 保留 5000 行历史回滚
 					theme: {
 						background: "#0b0e14",
 						foreground: "#e6e6e6",
@@ -117,40 +123,49 @@
 					},
 				});
 
+				// 加载“自适应”插件：让终端大小跟随容器
 				fitAddon = new FitAddon.FitAddon();
 				term.loadAddon(fitAddon);
-				term.open(document.getElementById("terminal"));
-				fitAddon.fit();
+				term.open(document.getElementById("terminal")); // 挂载到页面的 #terminal 元素
+				fitAddon.fit(); // 立即按当前容器大小适配
 
+				// 建立 WebSocket 连接到后端
 				socket = new WebSocket(wsUrl);
 
+				// 连接建立成功：先同步一次窗口尺寸，并让终端获得焦点
 				socket.onopen = function () {
 					sendResize();
 					term.focus();
 				};
 
+				// 收到后端数据（终端输出）：直接写入 xterm 显示
 				socket.onmessage = function (ev) {
 					term.write(ev.data);
 				};
 
+				// 连接断开：在终端里输出黄色提示
 				socket.onclose = function () {
 					term.write("\r\n\x1b[33m[连接已断开]\x1b[0m\r\n");
 				};
 
+				// 连接出错：在终端里输出红色提示
 				socket.onerror = function () {
 					term.write("\r\n\x1b[31m[连接出错]\x1b[0m\r\n");
 				};
 
+				// 用户敲键盘/粘贴输入：通过 WebSocket 发给后端写入 PTY
 				term.onData(function (data) {
 					if (socket && socket.readyState === WebSocket.OPEN) {
 						socket.send(data);
 					}
 				});
 
+				// 终端尺寸变化（如 fit 后触发）：同步给后端
 				term.onResize(function () {
 					sendResize();
 				});
 
+				// 浏览器窗口缩放：重新适配并同步尺寸
 				window.addEventListener("resize", function () {
 					if (fitAddon) {
 						fitAddon.fit();
@@ -159,18 +174,10 @@
 				});
 			}
 
+			// 点击“开始”按钮 -> 启动终端
 			startBtn.addEventListener("click", startTerminal);
 
-			// 添加用户：仅展示该功能，暂不实现自动登录
-			addUserBtn.addEventListener("click", function () {
-				termHint.textContent = "自动登录（添加用户）功能暂未开放";
-				termHint.hidden = false;
-				clearTimeout(addUserBtn._t);
-				addUserBtn._t = setTimeout(function () {
-					termHint.hidden = true;
-				}, 2500);
-			});
-
+			// 放大字体按钮：不超过上限
 			fontPlus.addEventListener("click", function () {
 				if (fontSize < MAX_FONT) {
 					fontSize += 1;
@@ -178,6 +185,7 @@
 				}
 			});
 
+			// 缩小字体按钮：不低于下限
 			fontMinus.addEventListener("click", function () {
 				if (fontSize > MIN_FONT) {
 					fontSize -= 1;

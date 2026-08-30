@@ -23,6 +23,7 @@ def inject_globals():
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(about_bp)
 app.register_blueprint(terminal_bp)
+# 把 terminal_sock 这个 WebSocket 对象接入 Flask 应用，这样它才能在 /terminal/ws 上提供 WebSocket 服务
 if terminal_sock is not None:
     terminal_sock.init_app(app)
 

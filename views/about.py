@@ -2,8 +2,7 @@
 关于模块
 """
 
-from flask import Blueprint
-from flask import render_template
+from flask import Blueprint, render_template
 
 about_bp = Blueprint("about", __name__)
 

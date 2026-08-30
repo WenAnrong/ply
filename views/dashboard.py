@@ -25,16 +25,16 @@ def _fmt_gb(value):
     return f"{value / (1024 ** 3):.2f} GB"
 
 
-def _fmt_size(value, min_gb, gt=False):
+def _fmt_size(value, min_gb):
     """按阈值在 GB / MB 之间选择单位。
 
     min_gb: 阈值（GB）
-    gt: True 表示「大于阈值才用 GB」，False 表示「大于等于阈值就用 GB」
     """
     if value is None:
         return "—"
-    gb = value / (1024 ** 3)
-    if (gb > min_gb) if gt else (gb >= min_gb):
+    gb = value / (1024**3)
+    # 大于等于阈值就用 GB
+    if gb >= min_gb:
         return f"{gb:.2f} GB"
     return f"{value / (1024 ** 2):.1f} MB"
 
@@ -119,12 +119,11 @@ def get_live_stats():
 
     memory_detail = {
         "total": _fmt_size(memory.total, 1),
-        "used": _fmt_size(memory.used, 3, gt=True),
-        # Linux 下存在 shared / cached；其他平台缺失时显示 —
-        "shared": _fmt_size(getattr(memory, "shared", None), 3, gt=True),
-        "cached": _fmt_size(getattr(memory, "cached", None), 3, gt=True),
-        "available": _fmt_size(memory.available, 3, gt=True),
-        "free": _fmt_size(memory.free, 3, gt=True),
+        "used": _fmt_size(memory.used, 3),
+        "shared": _fmt_size(getattr(memory, "shared", None), 3),
+        "cached": _fmt_size(getattr(memory, "cached", None), 3),
+        "available": _fmt_size(memory.available, 3),
+        "free": _fmt_size(memory.free, 3),
     }
 
     swap = psutil.swap_memory()
@@ -140,13 +139,13 @@ def get_live_stats():
         "memory_percent": memory.percent,
         "disk_percent": disk_primary["percent"] if disk_primary else 0,
         "cpu_use": f"{cpu}%",
-        "memory_used": _fmt_size(memory.total - memory.available, 3, gt=True),
+        "memory_used": _fmt_size(memory.total - memory.available, 3),
         "memory_total": _fmt_size(memory.total, 1),
         "disk_used": disk_primary["used"] if disk_primary else "—",
         "disk_total": disk_primary["total"] if disk_primary else "—",
         "memory_detail": memory_detail,
         "disk_details": disk_details,
-        "swap_used": _fmt_size(swap.used, 3, gt=True),
+        "swap_used": _fmt_size(swap.used, 3),
         "swap_total": _fmt_size(swap.total, 1),
         "swap_percent": swap.percent,
         "cpu_detail": cpu_detail,
@@ -155,7 +154,7 @@ def get_live_stats():
 
 
 def get_system_info():
-    """静态系统信息（很少变化，随首屏渲染）"""
+    """静态系统信息（随首屏渲染）"""
     boot_time = psutil.boot_time()
     boot_dt = datetime.fromtimestamp(boot_time)
 

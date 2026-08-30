@@ -276,16 +276,12 @@ ol {
 }
 
 .user-badge {
-    width: 34px;
-    height: 34px;
     border-radius: 50%;
-    background: var(--primary);
-    color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 1.1rem;
 }
 
 .menu-toggle {

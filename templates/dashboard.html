@@ -74,10 +74,13 @@
 			updater.addEventListener("htmx:afterSwap", function () {
 				updater.querySelectorAll("[data-stat]").forEach(function (src) {
 					const key = src.getAttribute("data-stat");
+					// 在可见区找同名的元素
+					// 在 #stats-live 里面，找一个 data-stat="<key>" 的子孙元素。
 					const dst = document.querySelector(
 						'#stats-live [data-stat="' + key + '"]'
 					);
 					if (!dst) return;
+					// 如果是 progress 元素，更新 value；否则更新 textContent
 					if (src.tagName === "PROGRESS") {
 						dst.value = src.value;
 					} else {

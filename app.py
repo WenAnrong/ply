@@ -14,6 +14,7 @@ from views.terminal import terminal_sock
 app = Flask(__name__)
 
 
+# 全局模板变量
 @app.context_processor
 def inject_globals():
     return {"now_year": datetime.now().year}

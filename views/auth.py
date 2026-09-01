@@ -25,6 +25,10 @@ def register():
     if current_user.is_authenticated:
         return redirect(url_for("dashboard.index"))
 
+    # 如果已经存在用户则拒绝注册
+    if User.query.count() > 0:
+        return redirect(url_for("auth.login"))
+
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
@@ -58,6 +62,11 @@ def register():
 
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
+
+    # 还没有任何用户，强制进入注册页完成初始化
+    if User.query.count() == 0:
+        return redirect(url_for("auth.register"))
+
     # 已登录用户直接回首页
     if current_user.is_authenticated:
         return redirect(url_for("dashboard.index"))

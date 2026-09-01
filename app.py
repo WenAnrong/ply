@@ -45,8 +45,8 @@ csrf = CSRFProtect(app)
 
 login_manager = LoginManager(app)
 login_manager.login_view = "auth.login"
-login_manager.login_message = "请先登录"
-login_manager.login_message_category = "error"
+# 禁用登录重定向时的自动 flash 提示
+login_manager.login_message = None
 
 
 @login_manager.user_loader

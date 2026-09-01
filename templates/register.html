@@ -17,13 +17,9 @@
 				</div>
 				<p class="auth-subtitle">创建你的面板账号</p>
 
-				{% with messages = get_flashed_messages(with_categories=true) %}
-					{% if messages %}
-						{% for category, message in messages %}
-							<div class="alert alert-{{ category }}">{{ message }}</div>
-						{% endfor %}
-					{% endif %}
-				{% endwith %}
+				{% if error %}
+					<div class="alert alert-error">{{ error }}</div>
+				{% endif %}
 
 				<form class="auth-form" method="post" action="{{ url_for('auth.register') }}" novalidate>
 					<input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
@@ -38,6 +34,7 @@
 							autocomplete="username"
 							required
 						/>
+						<small class="field-hint" id="username-hint"></small>
 					</div>
 
 					<div class="form-group">
@@ -50,6 +47,7 @@
 							autocomplete="new-password"
 							required
 						/>
+						<small class="field-hint" id="password-hint"></small>
 					</div>
 
 					<div class="form-group">
@@ -62,13 +60,138 @@
 							autocomplete="new-password"
 							required
 						/>
+						<small class="field-hint" id="confirm-hint"></small>
 					</div>
 
-					<button type="submit" class="btn btn-primary auth-submit">注 册</button>
+					<button type="submit" class="btn btn-primary auth-submit" id="register-btn" disabled>注 册</button>
 				</form>
 			</div>
 
 			<p class="auth-footer">&copy; {{ now_year }} war · ply 服务器面板</p>
 		</div>
+
+		<script>
+			(function () {
+				var form = document.querySelector('.auth-form');
+				var username = document.getElementById('username');
+				var password = document.getElementById('password');
+				var confirm = document.getElementById('confirm_password');
+				var usernameHint = document.getElementById('username-hint');
+				var passwordHint = document.getElementById('password-hint');
+				var confirmHint = document.getElementById('confirm-hint');
+				var submitBtn = document.getElementById('register-btn');
+
+				function updateSubmitState() {
+					var ok =
+						username.value.trim() !== '' &&
+						password.value.length >= 6 &&
+						confirm.value !== '' &&
+						confirm.value === password.value;
+					submitBtn.disabled = !ok;
+				}
+
+				function setState(input, hint, msg) {
+					if (msg) {
+						hint.textContent = msg;
+						hint.classList.add('is-error');
+						input.classList.add('input-invalid');
+					} else {
+						hint.textContent = '';
+						hint.classList.remove('is-error');
+						input.classList.remove('input-invalid');
+					}
+				}
+
+				// 用户名：失焦时校验必填；输入时已填则清除提示
+				function checkUsername(force) {
+					var v = username.value.trim();
+					if (v === '') {
+						if (force || username._touched) {
+							setState(username, usernameHint, '请填写用户名');
+						} else {
+							setState(username, usernameHint, '');
+						}
+					} else {
+						setState(username, usernameHint, '');
+					}
+				}
+
+				// 密码：输入时实时校验长度；失焦时校验必填
+				function checkPassword(force) {
+					var v = password.value;
+					if (v === '') {
+						if (force || password._touched) {
+							setState(password, passwordHint, '请填写密码');
+						} else {
+							setState(password, passwordHint, '');
+						}
+					} else if (v.length < 6) {
+						setState(password, passwordHint, '密码至少 6 位，还需 ' + (6 - v.length) + ' 位');
+					} else {
+						setState(password, passwordHint, '');
+					}
+					checkConfirm();
+				}
+
+				// 确认密码：输入时实时校验一致性
+				function checkConfirm(force) {
+					var v = confirm.value;
+					if (v === '') {
+						if (force || confirm._touched) {
+							setState(confirm, confirmHint, '请再次输入密码');
+						} else {
+							setState(confirm, confirmHint, '');
+						}
+					} else if (v !== password.value) {
+						setState(confirm, confirmHint, '两次输入的密码不一致');
+					} else {
+						setState(confirm, confirmHint, '');
+					}
+				}
+
+				username.addEventListener('input', function () {
+					username._touched = true;
+					checkUsername();
+					updateSubmitState();
+				});
+				username.addEventListener('blur', function () {
+					username._touched = true;
+					checkUsername(true);
+					updateSubmitState();
+				});
+				password.addEventListener('input', function () {
+					password._touched = true;
+					checkPassword();
+					updateSubmitState();
+				});
+				password.addEventListener('blur', function () {
+					password._touched = true;
+					checkPassword(true);
+					updateSubmitState();
+				});
+				confirm.addEventListener('input', function () {
+					confirm._touched = true;
+					checkConfirm();
+					updateSubmitState();
+				});
+				confirm.addEventListener('blur', function () {
+					confirm._touched = true;
+					checkConfirm(true);
+					updateSubmitState();
+				});
+
+				// 提交兜底：整体校验
+				form.addEventListener('submit', function (e) {
+					checkUsername(true);
+					checkPassword(true);
+					checkConfirm(true);
+					var firstInvalid = form.querySelector('.input-invalid');
+					if (firstInvalid) {
+						e.preventDefault();
+						firstInvalid.focus();
+					}
+				});
+			})();
+		</script>
 	</body>
 </html>

@@ -565,6 +565,21 @@ ol {
     color: #fff;
 }
 
+/* 禁用态按钮 */
+.btn:disabled,
+.btn[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.btn-primary:disabled,
+.btn-primary[disabled] {
+    background: var(--border);
+    border-color: var(--border);
+    color: var(--text-muted);
+}
+
 /* 表单 */
 label {
     display: block;
@@ -826,6 +841,28 @@ textarea:focus {
 
 .form-group {
     margin-bottom: 16px;
+}
+
+/* 字段级提示（边输入边校验） */
+.field-hint {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    min-height: 1em;
+}
+
+.field-hint.is-error {
+    color: #b91c1c;
+}
+
+.input-invalid {
+    border-color: #b91c1c !important;
+}
+
+.input-invalid:focus {
+    border-color: #b91c1c !important;
+    box-shadow: 0 0 0 3px rgba(185, 28, 28, 0.12) !important;
 }
 
 .form-row {

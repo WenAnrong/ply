@@ -157,25 +157,18 @@ ol {
     color: #fff;
 }
 
-.brand-mark {
+.brand-logo {
     width: 36px;
     height: 36px;
-    border-radius: 9px;
-    background: var(--primary);
-    color: #fff;
-    font-weight: 700;
-    font-size: 0.95rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    object-fit: contain;
     flex-shrink: 0;
-    letter-spacing: 0.02em;
 }
 
 .brand-name {
     font-weight: 600;
     font-size: 1.05rem;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
 /* 导航 */
@@ -813,6 +806,11 @@ textarea:focus {
     height: 40px;
     font-size: 1rem;
     border-radius: 10px;
+}
+
+.auth-brand .brand-logo {
+    width: 40px;
+    height: 40px;
 }
 
 .auth-brand .brand-name {

@@ -28,6 +28,7 @@ app = Flask(__name__)
 
 # 根据环境变量 FLASK_CONFIG 加载配置（默认开发环境）
 app.config.from_object(CONFIG_MAP[os.environ.get("FLASK_CONFIG", "default")])
+print(f"当前配置: {os.environ.get('FLASK_CONFIG', 'development')}")
 
 # SQLite 要求父目录已存在，这里自动创建
 _db_path = app.config["SQLALCHEMY_DATABASE_URI"].replace("sqlite:///", "")

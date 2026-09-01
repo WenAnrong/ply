@@ -4,6 +4,7 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>注册 · ply面板</title>
+		<link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}" />
 		<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" />
 	</head>
 
@@ -11,7 +12,7 @@
 		<div class="auth-wrap">
 			<div class="auth-card">
 				<div class="auth-brand">
-					<span class="brand-mark">ply</span>
+					<img class="brand-logo" src="{{ url_for('static', filename='images/favicon.png') }}" alt="ply" />
 					<span class="brand-name">ply面板</span>
 				</div>
 				<p class="auth-subtitle">创建你的面板账号</p>

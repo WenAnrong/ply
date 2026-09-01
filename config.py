@@ -48,8 +48,6 @@ class BaseConfig:
 class DevelopmentConfig(BaseConfig):
     """开发环境"""
 
-    print("开发模式")
-
     # SQLite 放在项目 tmp/ 下
     SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.join(basedir, "tmp", "ply.db")
     # 配置文件放在项目 tmp/ 下
@@ -59,10 +57,8 @@ class DevelopmentConfig(BaseConfig):
 class ProductionConfig(BaseConfig):
     """正式环境"""
 
-    print("生产模式")
-
     # sqlite 放在 /var/lib/ply/ 下
-    SQLALCHEMY_DATABASE_URI = ("sqlite:///" + os.path.join("/var/lib/ply", "ply.db"),)
+    SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.join("/var/lib/ply", "ply.db")
 
     # 配置文件放在 /etc/ply/ 下
     CONFIG_INI_PATH = os.path.join("/etc/ply/", "config.ini")

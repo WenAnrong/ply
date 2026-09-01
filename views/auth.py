@@ -65,13 +65,12 @@ def login():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-        remember = request.form.get("remember") == "on"
 
         user = User.query.filter_by(username=username).first()
         if user is None or not user.check_password(password):
             flash("用户名或密码错误", "error")
         else:
-            login_user(user, remember=remember)
+            login_user(user)
             # 优先跳转到被拦截的页面（?next=），否则回首页
             next_page = request.args.get("next")
             if next_page and next_page.startswith("/"):

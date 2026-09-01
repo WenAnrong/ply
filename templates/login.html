@@ -4,6 +4,7 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>登录 · ply面板</title>
+		<link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}" />
 		<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" />
 	</head>
 
@@ -11,7 +12,7 @@
 		<div class="auth-wrap">
 			<div class="auth-card">
 				<div class="auth-brand">
-					<span class="brand-mark">ply</span>
+					<img class="brand-logo" src="{{ url_for('static', filename='images/favicon.png') }}" alt="ply" />
 					<span class="brand-name">ply面板</span>
 				</div>
 				<p class="auth-subtitle">登录服务器管理面板</p>
@@ -49,13 +50,6 @@
 							autocomplete="current-password"
 							required
 						/>
-					</div>
-
-					<div class="form-row">
-						<label class="checkbox">
-							<input type="checkbox" name="remember" id="remember" />
-							<span>记住我</span>
-						</label>
 					</div>
 
 					<button type="submit" class="btn btn-primary auth-submit">登 录</button>

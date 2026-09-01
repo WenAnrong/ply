@@ -1,24 +1,20 @@
 """
 终端模块
-
-提供一个「开始」门控 + WebSocket 的 PTY 终端。
-终端基于 tmux：断开重连可恢复同一个持久会话，方便用 tmux 管理。
-未配置自动登录用户时，tmux 会话中运行的是用户默认 shell，
-可自行输入用户名 / 密码进行认证。
 """
 
-import fcntl  # 用于对文件描述符执行 ioctl 控制（如设置终端窗口大小）
-import json  # 解析前端发来的 JSON 控制消息（resize）
-import os  # 读写文件描述符、进程/环境变量操作
-import pty  # 核心：创建伪终端（pty.fork），模拟一个真实的终端
-import signal  # 发送信号（SIGHUP/SIGKILL）来结束 tmux 子进程
-import struct  # 把 rows/cols 打包成二进制字节（struct.pack）
-import termios  # 定义 TIOCSWINSZ 常量，用于设置终端窗口大小
-import threading  # 后台线程读取 PTY 输出，避免阻塞主循环
-import time  # 在等待子进程退出时做短暂 sleep
+import fcntl
+import json
+import os
+import pty
+import signal
+import struct
+import termios
+import threading
+import time
 
 from flask import Blueprint
 from flask import render_template
+from flask_login import current_user
 
 from flask_sock import Sock
 
@@ -119,6 +115,14 @@ def _handle_terminal_ws(ws):
     后台线程：读取 PTY 输出，转发给浏览器。
     主循环：接收浏览器输入，写回 PTY；同时处理 resize 控制消息。
     """
+    # 防御性校验：即使 before_request 被绕过，未登录用户也不给建立终端连接
+    if not current_user.is_authenticated:
+        try:
+            ws.close(message="未登录")
+        except Exception:
+            pass
+        return
+
     pid, fd = _spawn_terminal()
     # 先给 PTY 设置一个默认的 24 行 × 80 列
     _resize_pty(fd, 24, 80)

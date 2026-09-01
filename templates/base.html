@@ -68,14 +68,21 @@
 					</button>
 					<h1 class="topbar-title">{% block page_title %}ply面板{% endblock %}</h1>
 					<div class="topbar-actions">
-						<span class="user-badge">W</span>
+						<span class="user-badge">{{ current_user.username[0]|upper }}</span>
 					</div>
 					<div class="topbar-actions">
-						<button class="btn">退出</button>
+						<a class="btn" href="{{ url_for('auth.logout') }}">退出</a>
 					</div>
 				</header>
 
 				<main class="main">
+					{% with messages = get_flashed_messages(with_categories=true) %}
+						{% if messages %}
+							{% for category, message in messages %}
+								<div class="alert alert-{{ category }}">{{ message }}</div>
+							{% endfor %}
+						{% endif %}
+					{% endwith %}
 					{% block content %}{% endblock %}
 				</main>
 				<footer class="footer">

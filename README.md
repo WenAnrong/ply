@@ -11,3 +11,13 @@
 ```bash
 sudo apt install tmux python3-venv
 ```
+
+## 开发配置
+
+创建 `.flaskenv` 文件，内容如下：
+```bash
+FLASK_CONFIG=development  # 使用开发环境配置
+FLASK_DEBUG=True          # 启动debug模式
+```
+
+然后调试时使用 `flask run` 启动服务.

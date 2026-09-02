@@ -98,6 +98,7 @@ def _spawn_terminal():
         os.environ["TERM"] = "xterm-256color"
         os.environ.setdefault("LANG", "en_US.UTF-8")
         shell = os.environ.get("SHELL", "/bin/bash")
+        os.chdir(os.path.expanduser("~"))  # 切换到用户家目录
         # 关闭从父进程（Flask）继承来的多余 fd，避免监听端口的 socket 泄漏到 tmux
         _close_inherited_fds()
         try:

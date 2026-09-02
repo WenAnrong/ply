@@ -21,9 +21,11 @@ from models import db
 from views.about import about_bp
 from views.auth import auth_bp
 from views.dashboard import dashboard_bp
+from views.docker import docker_bp
 from views.terminal import terminal_bp
 from views.terminal import terminal_sock
 from views.settings import setting_bp
+from views.website import website_bp
 
 app = Flask(__name__)
 
@@ -88,6 +90,8 @@ app.register_blueprint(about_bp)
 app.register_blueprint(auth_bp)
 app.register_blueprint(terminal_bp)
 app.register_blueprint(setting_bp)
+app.register_blueprint(docker_bp)
+app.register_blueprint(website_bp)
 # 把 terminal_sock 这个 WebSocket 对象接入 Flask 应用，这样它才能在 /terminal/ws 上提供 WebSocket 服务
 if terminal_sock is not None:
     terminal_sock.init_app(app)

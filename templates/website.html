@@ -1,0 +1,20 @@
+<!-- 继承 base.html -->
+{% extends "base.html" %}
+
+<!-- 覆盖父模板的 title block -->
+{% block title %}网站 · ply面板{% endblock %}
+
+<!-- 覆盖页面标题 -->
+{% block page_title %}网站{% endblock %}
+
+<!-- 填充父模板的 content block -->
+{% block content %}
+
+	<div class="panel">
+		<div class="panel-header">网站管理</div>
+		<div class="panel-body">
+			<p class="page-subtitle">网站管理功能开发中…</p>
+		</div>
+	</div>
+
+{% endblock %}

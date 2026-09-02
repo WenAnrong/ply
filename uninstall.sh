@@ -56,4 +56,6 @@ if id -u "$SERVICE_USER" >/dev/null 2>&1; then
   userdel -r "$SERVICE_USER" 2>/dev/null || true
 fi
 
+echo "docker不会被删除, 如果需要请手动删除"
+
 echo "==> 卸载完成"

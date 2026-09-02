@@ -81,9 +81,14 @@ case "$PKG_MANAGER" in
 esac
 
 # ---------- 安装 Docker 与 Docker Compose ----------
-log "安装 Docker 与 Docker Compose（官方 get.docker.com 脚本）"
-command -v curl >/dev/null 2>&1 || err "缺少 curl，无法使用 get.docker.com 脚本"
-curl -fsSL https://get.docker.com | sh
+log "检查 Docker 是否已安装"
+if command -v docker >/dev/null 2>&1; then
+  log "检测到 Docker 已安装，跳过安装脚本"
+else
+  log "安装 Docker 与 Docker Compose（官方 get.docker.com 脚本）"
+  command -v curl >/dev/null 2>&1 || err "缺少 curl，无法使用 get.docker.com 脚本"
+  curl -fsSL https://get.docker.com | sh
+fi
 # 确保 Docker 服务启动（systemd 环境）
 if command -v systemctl >/dev/null 2>&1; then
   systemctl enable --now docker >/dev/null 2>&1 || true
@@ -93,7 +98,7 @@ log "Docker 版本: $(docker --version 2>&1)"
 if docker compose version >/dev/null 2>&1; then
   log "Docker Compose 版本: $(docker compose version 2>&1)"
 else
-  err "Docker Compose 插件未安装"
+  err "Docker Compose 插件未安装，请先自行安装"
 fi
 
 # ---------- 找到 Python >= 3.10 ----------

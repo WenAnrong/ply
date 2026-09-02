@@ -23,57 +23,44 @@
 				</div>
 
 				<nav class="sidebar-nav">
-					<section class="nav-section">
-						<span class="nav-section-title">概览</span>
-						<a href="{{ url_for('dashboard.index') }}" class="nav-link {% if request.path == '/' %}active{% endif %}">
-							<span class="nav-ico">
-								<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-							</span>
-							<span>仪表盘</span>
-						</a>
-						<a href="{{ url_for('terminal.index') }}" class="nav-link {% if request.path == '/terminal' %}active{% endif %}">
-							<span class="nav-ico">
-								<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.5" ry="2.5"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-							</span>
-							<span>终端</span>
-						</a>
+					<a href="{{ url_for('dashboard.index') }}" class="nav-link {% if request.path == '/' %}active{% endif %}">
+						<span class="nav-ico">
+							<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+						</span>
+						<span>仪表盘</span>
+					</a>
+					<a href="{{ url_for('terminal.index') }}" class="nav-link {% if request.path == '/terminal' %}active{% endif %}">
+						<span class="nav-ico">
+							<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.5" ry="2.5"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+						</span>
+						<span>终端</span>
+					</a>
 
-					</section>
-
-					<section class="nav-section">
-						<span class="nav-section-title">管理</span>
-						<a href="{{ url_for('docker.index') }}" class="nav-link {% if request.path == '/docker' %}active{% endif %}">
-							<span class="nav-ico">
-								<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h1"/><path d="M3 12h1"/><path d="M3 6h1"/><path d="M7 18h1"/><path d="M7 12h1"/><path d="M7 6h1"/><path d="M11 18h1"/><path d="M11 12h1"/><path d="M11 6h1"/><path d="M15 12h1"/><path d="M15 6h1"/><path d="M19 12h1"/><path d="M15 18h3"/><path d="M19 18h1"/></svg>
-							</span>
-							<span>Docker</span>
-						</a>
-						<a href="{{ url_for('website.index') }}" class="nav-link {% if request.path == '/website' %}active{% endif %}">
-							<span class="nav-ico">
-								<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.5" ry="2.5"/><circle cx="12" cy="12" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="16" cy="16" r="1"/></svg>
-							</span>
-							<span>网站</span>
-						</a>
-					</section>
-
-					<section class="nav-section">
-						<span class="nav-section-title">系统</span>
-						<a href="{{ url_for('setting.index') }}" class="nav-link {% if request.path == '/setting' %}active{% endif %}">
-							<span class="nav-ico">
-								<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-							</span>
-							<span>设置</span>
-						</a>
-						<a href="{{ url_for('about.index') }}" class="nav-link {% if request.path == '/about' %}active{% endif %}">
-							<span class="nav-ico">
-								<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-							</span>
-							<span>关于</span>
-						</a>
-					</section>
-
+					<a href="{{ url_for('docker.index') }}" class="nav-link {% if request.path == '/docker' %}active{% endif %}">
+						<span class="nav-ico">
+							<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h1"/><path d="M3 12h1"/><path d="M3 6h1"/><path d="M7 18h1"/><path d="M7 12h1"/><path d="M7 6h1"/><path d="M11 18h1"/><path d="M11 12h1"/><path d="M11 6h1"/><path d="M15 12h1"/><path d="M15 6h1"/><path d="M19 12h1"/><path d="M15 18h3"/><path d="M19 18h1"/></svg>
+						</span>
+						<span>Docker</span>
+					</a>
+					<a href="{{ url_for('website.index') }}" class="nav-link {% if request.path == '/website' %}active{% endif %}">
+						<span class="nav-ico">
+							<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.5" ry="2.5"/><circle cx="12" cy="12" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="16" cy="16" r="1"/></svg>
+						</span>
+						<span>网站</span>
+					</a>
+					<a href="{{ url_for('setting.index') }}" class="nav-link {% if request.path == '/setting' %}active{% endif %}">
+						<span class="nav-ico">
+							<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+						</span>
+						<span>设置</span>
+					</a>
+					<a href="{{ url_for('about.index') }}" class="nav-link {% if request.path == '/about' %}active{% endif %}">
+						<span class="nav-ico">
+							<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+						</span>
+						<span>关于</span>
+					</a>
 				</nav>
-
 			</aside>
 
 			<!-- ===== 右侧内容区 ===== -->

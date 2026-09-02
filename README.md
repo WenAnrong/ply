@@ -76,6 +76,20 @@ sudo PLY_PORT=9000 PLY_BIND=0.0.0.0:9000 bash install.sh
 
 ## 卸载
 
+### 一键卸载（无需手动下载脚本）
+
+```bash
+# 使用 curl（PLY_YES=1 跳过二次确认）
+curl -fsSL https://raw.githubusercontent.com/WenAnrong/ply/main/uninstall.sh | sudo PLY_YES=1 bash
+
+# 或使用 wget
+wget -qO- https://raw.githubusercontent.com/WenAnrong/ply/main/uninstall.sh | sudo PLY_YES=1 bash
+```
+
+> 通过管道执行时 `read` 无法交互，故默认跳过二次确认；本地直接运行脚本则仍会有确认提示。
+
+### 本地运行
+
 ```bash
 sudo bash uninstall.sh
 ```

@@ -33,9 +33,10 @@ echo "  配置目录  $CONFIG_DIR"
 if id -u "$SERVICE_USER" >/dev/null 2>&1; then
   echo "  服务用户  $SERVICE_USER (及其家目录)"
 fi
-echo
-read -r -p "确认继续吗? 输入 yes 继续: " ans
-[[ "$ans" == "yes" ]] || { echo "已取消"; exit 0; }
+if [[ "${PLY_YES:-}" != "1" ]]; then
+  read -r -p "确认继续吗? 输入 yes 继续: " ans
+  [[ "$ans" == "yes" ]] || { echo "已取消"; exit 0; }
+fi
 
 # 停止并禁用服务
 echo "==> 停止并禁用服务"

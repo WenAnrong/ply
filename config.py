@@ -44,9 +44,6 @@ class BaseConfig:
     SESSION_COOKIE_SAMESITE = "Lax"
     SESSION_COOKIE_SECURE = False
 
-    # Docker 相关数据/启动文件默认目录（生产环境）
-    DOCKER_DATA_DIR = "/var/lib/ply/docker"
-
 
 class DevelopmentConfig(BaseConfig):
     """开发环境"""
@@ -55,9 +52,6 @@ class DevelopmentConfig(BaseConfig):
     SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.join(basedir, "tmp", "ply.db")
     # 配置文件放在项目 tmp/ 下
     CONFIG_INI_PATH = os.path.join(basedir, "tmp", "config.ini")
-
-    # 开发环境：Docker 数据目录放到项目 tmp/ 下，避免污染系统目录
-    DOCKER_DATA_DIR = os.path.join(basedir, "tmp", "docker")
 
 
 class ProductionConfig(BaseConfig):

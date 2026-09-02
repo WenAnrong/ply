@@ -177,10 +177,6 @@ ol {
     padding: 16px 14px;
 }
 
-.nav-section {
-    margin-bottom: 18px;
-}
-
 .nav-link {
     display: flex;
     align-items: center;
@@ -677,6 +673,24 @@ ol {
     color: var(--text-muted);
 }
 
+.btn-danger {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #fff;
+}
+
+.btn-danger:hover {
+    background: #b91c1c;
+    border-color: #b91c1c;
+    color: #fff;
+}
+
+/* 仅图标按钮 */
+.btn-icon {
+    padding: 0.5rem;
+    line-height: 1;
+}
+
 /* 表单 */
 label {
     display: block;
@@ -744,6 +758,21 @@ textarea:focus {
     font-size: 0.82rem;
     text-transform: uppercase;
     letter-spacing: 0.03em;
+}
+
+/* 行内小表单（如每行的删除按钮） */
+.inline-form {
+    display: inline;
+}
+
+/* 行内代码（如镜像名 / ID） */
+code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85rem;
+    background: var(--bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
 }
 
 /* ---------- 终端 ---------- */
@@ -944,41 +973,6 @@ textarea:focus {
 .input-invalid:focus {
     border-color: #b91c1c !important;
     box-shadow: 0 0 0 3px rgba(185, 28, 28, 0.12) !important;
-}
-
-.form-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin: 4px 0 20px;
-    font-size: 0.85rem;
-}
-
-.checkbox {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.85rem;
-    color: var(--text);
-    margin: 0;
-    cursor: pointer;
-}
-
-.checkbox input {
-    width: auto;
-    margin: 0;
-}
-
-/* “忘记密码”链接 */
-.link {
-    color: var(--primary);
-    text-decoration: none;
-    font-size: 0.85rem;
-}
-
-.link:hover {
-    color: var(--primary-hover);
-    text-decoration: underline;
 }
 
 .auth-submit {

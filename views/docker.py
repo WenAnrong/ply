@@ -7,16 +7,12 @@ import os
 import subprocess
 
 from flask import Blueprint
-from flask import current_app
 from flask import flash
 from flask import redirect
 from flask import render_template
 from flask import request
 from flask import url_for
 from flask_login import login_required
-
-from models import Setting
-from models import db
 
 docker_bp = Blueprint("docker", __name__)
 
@@ -51,18 +47,24 @@ def _sudo(args, stdin=None):
     )
 
 
-def get_docker_data_dir():
-    """当前生效的 Docker 数据目录：SQLite 设置 > config 默认值。"""
-    return Setting.get("docker_data_dir") or current_app.config.get(
-        "DOCKER_DATA_DIR", "/var/lib/ply/docker"
+def _list_images():
+    """列出本地 Docker 镜像，返回 (列表, 错误信息)。"""
+    r = _sudo(
+        [
+            "docker",
+            "images",
+            "--format",
+            "{{.Repository}}:{{.Tag}}\t{{.ID}}\t{{.Size}}",
+        ]
     )
-
-
-def ensure_docker_data_dir():
-    """确保 Docker 数据目录存在，返回该路径。"""
-    path = get_docker_data_dir()
-    os.makedirs(path, exist_ok=True)
-    return path
+    if r.returncode != 0:
+        return [], r.stderr.strip() or "无法读取 Docker 镜像（请确认 Docker 是否可用）"
+    images = []
+    for line in r.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 3:
+            images.append({"name": parts[0], "id": parts[1], "size": parts[2]})
+    return images, None
 
 
 @docker_bp.route("/docker")
@@ -80,7 +82,13 @@ def services():
 @docker_bp.route("/docker/images")
 @login_required
 def images():
-    return render_template("docker.html", active_tab="images")
+    image_list, err = _list_images()
+    return render_template(
+        "docker.html",
+        active_tab="images",
+        docker_images=image_list,
+        docker_images_error=err,
+    )
 
 
 @docker_bp.route("/docker/settings")
@@ -94,10 +102,6 @@ def settings():
         docker_config_exists=exists,
         docker_config_error=err,
         docker_config_path=DOCKER_DAEMON_JSON,
-        docker_data_dir=get_docker_data_dir(),
-        docker_data_dir_default=current_app.config.get(
-            "DOCKER_DATA_DIR", "/var/lib/ply/docker"
-        ),
     )
 
 
@@ -133,34 +137,18 @@ def save_docker_config():
     return redirect(url_for("docker.settings"))
 
 
-@docker_bp.route("/docker/settings/data-dir", methods=["POST"])
+@docker_bp.route("/docker/images/delete", methods=["POST"])
 @login_required
-def save_docker_data_dir():
-    value = request.form.get("data_dir", "").strip()
+def delete_docker_image():
+    ref = request.form.get("ref", "").strip()
 
-    # 校验：不能为空、必须是绝对路径
-    if not value:
-        flash("目录不能为空", "error")
-        return redirect(url_for("docker.settings"))
-    if not os.path.isabs(value):
-        flash("目录必须是绝对路径", "error")
-        return redirect(url_for("docker.settings"))
+    if not ref:
+        flash("未选择镜像", "error")
+        return redirect(url_for("docker.images"))
 
-    # 尝试创建目录，写不进去直接报错，避免留一个不可用路径
-    try:
-        os.makedirs(value, exist_ok=True)
-    except Exception as e:
-        flash(f"无法创建目录：{e}", "error")
-        return redirect(url_for("docker.settings"))
-
-    # upsert 到设置表
-    setting = db.session.get(Setting, "docker_data_dir")
-    if setting is None:
-        setting = Setting(key="docker_data_dir", value=value)
-        db.session.add(setting)
+    r = _sudo(["docker", "rmi", ref])
+    if r.returncode != 0:
+        flash("删除失败：" + (r.stderr.strip() or "镜像可能正被容器使用"), "error")
     else:
-        setting.value = value
-    db.session.commit()
-
-    flash("Docker 数据目录已更新", "success")
-    return redirect(url_for("docker.settings"))
+        flash(f"镜像 {ref} 已删除", "success")
+    return redirect(url_for("docker.images"))

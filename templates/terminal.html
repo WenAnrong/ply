@@ -6,18 +6,8 @@
 
 {% block content %}
 	<div class="terminal-page">
-		<!-- 终端上方工具栏：左侧添加用户（自动登录），右侧字体缩放 -->
+		<!-- 终端上方工具栏：右侧字体缩放 -->
 		<div class="terminal-toolbar">
-			<div class="toolbar-left">
-				<button
-					id="addUserBtn"
-					class="btn"
-					type="button"
-				>添加用户</button>
-			</div>
-			<div>
-				<!-- TODO: 添加用户后在这显示和选择 -->
-			</div>
 			<div class="toolbar-right">
 				<button id="fontMinus" class="btn toolbar-icon" type="button" title="缩小字体">−</button>
 				<span id="fontSizeLabel" class="font-size-label">14px</span>
@@ -25,15 +15,9 @@
 			</div>
 		</div>
 
-		<!-- 黑色终端框 -->
+		<!-- 黑色终端框：进入即像 tty 一样弹出登录提示 -->
 		<div class="terminal-shell">
 			<div id="terminal" class="terminal-box"></div>
-
-			<!-- 开始门控：点击"开始"后才能进入终端，否则不进入 -->
-			<div id="terminalGate" class="terminal-gate">
-				<button id="startBtn" class="btn btn-primary start-btn" type="button">开始</button>
-				<p class="gate-hint">点击「开始」进入终端</p>
-			</div>
 		</div>
 	</div>
 {% endblock %}
@@ -52,8 +36,6 @@
 			"use strict";
 
 			// ===== 从页面 DOM 中取出需要用到的元素 =====
-			var gate = document.getElementById("terminalGate"); // 开始门控遮罩层
-			var startBtn = document.getElementById("startBtn"); // “开始”按钮
 			var fontPlus = document.getElementById("fontPlus"); // 放大字体按钮
 			var fontMinus = document.getElementById("fontMinus"); // 缩小字体按钮
 			var fontSizeLabel = document.getElementById("fontSizeLabel"); // 显示当前字号
@@ -102,11 +84,8 @@
 				location.host +
 				"/terminal/ws";
 
-			// 点击“开始”后真正初始化终端
+			// 启动终端（进入页面即调用，像 tty 一样弹出登录提示）
 			function startTerminal() {
-				// 隐藏开始门控遮罩
-				gate.hidden = true;
-
 				// 创建 xterm.js 终端实例，配置外观与行为
 				term = new Terminal({
 					cursorBlink: true, // 光标闪烁
@@ -174,8 +153,8 @@
 				});
 			}
 
-			// 点击“开始”按钮 -> 启动终端
-			startBtn.addEventListener("click", startTerminal);
+			// 进入页面即启动终端（像 tty 一样）
+			startTerminal();
 
 			// 放大字体按钮：不超过上限
 			fontPlus.addEventListener("click", function () {

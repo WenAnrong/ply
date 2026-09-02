@@ -23,7 +23,7 @@ terminal_sock = Sock()
 
 terminal_bp = Blueprint("terminal", __name__)
 
-# tmux 持久会话名称：所有终端连接都附加到同一个名为 "ply" 的 tmux 会话
+# tmux 持久会话名称
 TMUX_SESSION = "ply"
 
 
@@ -46,6 +46,41 @@ def _resize_pty(fd, rows, cols):
         pass
 
 
+def _close_inherited_fds():
+    """关闭子进程从父进程（Flask）继承来的多余文件描述符。
+
+    pty.fork() 会给子进程复制父进程当前打开的所有 fd，
+    其中包含 Flask 监听端口的 socket。若不关闭，这个 fd 会一路
+    泄漏到 tmux server，导致 Flask 退出后端口仍被占用。
+    子进程里 stdio(0/1/2) 已连接到 PTY 从设备，因此只需关闭 3 及以上的 fd。
+    优先读取 /proc/self/fd（Linux），失败时回退为按范围遍历。
+    """
+    try:
+        for name in os.listdir("/proc/self/fd"):
+            try:
+                fd = int(name)
+            except ValueError:
+                continue
+            if fd >= 3:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+    except OSError:
+        # 非 Linux 环境：退化为按最大打开数遍历关闭
+        try:
+            import resource
+
+            maxfd = resource.getrlimit(resource.RLIMIT_NOFILE)[0]
+        except Exception:
+            maxfd = os.sysconf("SC_OPEN_MAX")
+        for fd_num in range(3, maxfd):
+            try:
+                os.close(fd_num)
+            except OSError:
+                pass
+
+
 def _spawn_terminal():
     """在一个全新 PTY 中启动 tmux 客户端，附加到持久会话。
 
@@ -63,6 +98,8 @@ def _spawn_terminal():
         os.environ["TERM"] = "xterm-256color"
         os.environ.setdefault("LANG", "en_US.UTF-8")
         shell = os.environ.get("SHELL", "/bin/bash")
+        # 关闭从父进程（Flask）继承来的多余 fd，避免监听端口的 socket 泄漏到 tmux
+        _close_inherited_fds()
         try:
             # os.execlp 会用 tmux 替换当前子进程镜像
             os.execlp("tmux", "tmux", "new-session", "-A", "-s", TMUX_SESSION)

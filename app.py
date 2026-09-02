@@ -101,5 +101,4 @@ def not_found(error):
 
 
 if __name__ == "__main__":
-    # 多线程：WebSocket 终端连接会占用独立工作线程，避免阻塞其他请求
-    app.run(threaded=True)
+    app.run()

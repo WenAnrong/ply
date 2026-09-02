@@ -660,7 +660,6 @@ textarea:focus {
     flex-shrink: 0;
 }
 
-.toolbar-left,
 .toolbar-right {
     display: flex;
     align-items: center;
@@ -700,37 +699,6 @@ textarea:focus {
 .terminal-box .xterm {
     height: 100%;
     padding: 8px 10px;
-}
-
-/* 开始门控 */
-.terminal-gate {
-    position: absolute;
-    inset: 0;
-    z-index: 5;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    background: #0b0e14;
-    color: #e6e6e6;
-}
-
-/* 确保 hidden 属性可以隐藏门控（覆盖上面的 display: flex） */
-.terminal-gate[hidden] {
-    display: none;
-}
-
-.start-btn {
-    min-width: 120px;
-    padding: 0.7rem 1.4rem;
-    font-size: 1rem;
-}
-
-.gate-hint {
-    margin: 0;
-    color: #8b93a0;
-    font-size: 0.9rem;
 }
 
 /* ---------- 响应式 ---------- */

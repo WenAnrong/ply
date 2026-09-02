@@ -275,6 +275,48 @@ ol {
     background: var(--primary-soft);
 }
 
+/* ---------- 顶部子导航栏 ---------- */
+.subnav {
+    display: flex;
+    gap: 8px;
+    padding: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+}
+
+.subnav-item {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 18px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    line-height: 1.2;
+    white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.subnav-item:hover {
+    background: var(--primary-soft);
+    color: var(--primary);
+}
+
+.subnav-item.active {
+    background: var(--primary);
+    color: #fff;
+}
+
 /* ---------- 内容区 & 页脚 ---------- */
 .main {
     flex: 1;

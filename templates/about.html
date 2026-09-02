@@ -13,6 +13,18 @@
 	<p class="page-subtitle">ply 服务器管理面板</p>
 
 	<div class="card">
+		<h3>版本对比</h3>
+		<div
+			id="version-compare"
+			hx-get="{{ url_for('about.version') }}"
+			hx-trigger="load"
+			hx-swap="innerHTML"
+		>
+			正在检查版本…
+		</div>
+	</div>
+	
+	<div class="card">
 		<h3>项目介绍</h3>
 		<p>
 			这是一个使用 Flask 构建的轻量级服务器管理面板。
@@ -20,6 +32,7 @@
 		<ul>
 			<li>框架：Flask</li>
 			<li>交互：htmx</li>
+			<li>当前版本：{{ local_version }}</li>
 		</ul>
 	</div>
 {% endblock %}

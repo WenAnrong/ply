@@ -199,6 +199,7 @@ secret_key = <随机生成的密钥>
 ├── config.py              # 环境配置（development / production）与 config.ini 处理
 ├── models.py              # SQLAlchemy 数据模型（User）
 ├── requirements.txt       # Python 依赖
+├── VERSION                # 版本号文件（关于页用于版本对比）
 ├── install.sh             # 一键安装脚本
 ├── uninstall.sh           # 卸载脚本
 ├── static/                # 静态资源（CSS / JS / 图片）

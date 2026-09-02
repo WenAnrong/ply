@@ -1,0 +1,26 @@
+<div class="version-compare">
+	<div class="version-row">
+		<span class="version-label">当前版本</span>
+		<span class="version-value">{{ local_version }}</span>
+	</div>
+	<div class="version-row">
+		<span class="version-label">最新版本</span>
+		<span class="version-value">{{ latest_version or '未知' }}</span>
+	</div>
+
+	<div class="version-status version-status-{{ status }}">
+		{%- if status == 'outdated' -%}
+			⚠️ {{ message }}
+		{%- elif status == 'latest' -%}
+			✅ {{ message }}
+		{%- elif status == 'ahead' -%}
+			🔺 {{ message }}
+		{%- else -%}
+			❓ {{ message }}
+		{%- endif -%}
+	</div>
+
+	{%- if status == 'outdated' -%}
+		<div class="version-hint">更新方式：在ssh到服务器上执行 <code>curl -fsSL https://raw.githubusercontent.com/WenAnrong/ply/main/install.sh | sudo bash</code></div>
+	{%- endif -%}
+</div>

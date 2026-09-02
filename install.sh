@@ -16,6 +16,7 @@
 #   PLY_WORKERS      gunicorn worker 数(默认 1)
 #   PLY_THREADS      gunicorn 线程数(默认 50)
 #   PLY_PYTHON       指定 Python 解释器
+#   PLY_SUDO         为服务用户配置免密 sudo(默认 1, 设 0 关闭)
 #
 set -euo pipefail
 
@@ -72,11 +73,11 @@ log "安装系统依赖 (git / python3 / pip / tmux)"
 case "$PKG_MANAGER" in
   apt-get)
     apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y git python3 python3-venv python3-pip tmux
+    DEBIAN_FRONTEND=noninteractive apt-get install -y git python3 python3-venv python3-pip tmux sudo
     ;;
-  dnf)  dnf install -y git python3 python3-pip tmux ;;
-  yum)  yum install -y git python3 python3-pip tmux ;;
-  zypper) zypper --non-interactive install git python3 python3-pip tmux ;;
+  dnf)  dnf install -y git python3 python3-pip tmux sudo ;;
+  yum)  yum install -y git python3 python3-pip tmux sudo ;;
+  zypper) zypper --non-interactive install git python3 python3-pip tmux sudo ;;
 esac
 
 # ---------- 找到 Python >= 3.10 ----------
@@ -130,6 +131,13 @@ if ! id -u "$SERVICE_USER" >/dev/null 2>&1; then
 fi
 mkdir -p "$DATA_DIR" "$CONFIG_DIR"
 chown -R "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR" "$CONFIG_DIR" "$INSTALL_DIR"
+
+# ---------- 终端权限：允许服务用户免密 sudo ----------
+if [[ "${PLY_SUDO:-1}" != "0" ]]; then
+  log "为 $SERVICE_USER 配置免密 sudo（终端可直接执行 sudo 命令）"
+  echo "$SERVICE_USER ALL=(ALL) NOPASSWD: ALL" > "/etc/sudoers.d/$SERVICE_USER"
+  chmod 0440 "/etc/sudoers.d/$SERVICE_USER"
+fi
 
 # ---------- systemd 服务 ----------
 log "创建 systemd 服务 $SERVICE_NAME"

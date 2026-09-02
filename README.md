@@ -46,7 +46,8 @@ sudo bash install.sh
 4. 从仓库克隆源码到 `/opt/ply`；
 5. 创建虚拟环境并安装 `requirements.txt` 依赖，以及 `gunicorn`；
 6. 创建服务用户 `ply`，并准备数据目录 `/var/lib/ply` 与配置目录 `/etc/ply`；
-7. 生成 systemd 服务 `ply.service`，开机自启并立即启动。
+7. 生成 systemd 服务 `ply.service`，开机自启并立即启动；
+8. 为服务用户 `ply` 配置免密 sudo，Web 终端内可直接执行 `sudo` 命令。
 
 安装完成后通过浏览器访问：`http://<服务器IP>:8000`
 
@@ -67,6 +68,7 @@ sudo bash install.sh
 | `PLY_WORKERS` | `1` | gunicorn worker 数 |
 | `PLY_THREADS` | `50` | gunicorn 线程数 |
 | `PLY_PYTHON` | 自动检测 | 指定 Python 解释器 |
+| `PLY_SUDO` | `1` | 为服务用户配置免密 sudo；设为 `0` 关闭 |
 
 示例：
 
@@ -105,6 +107,8 @@ sudo bash uninstall.sh
 - 首次启动自动生成随机 `SECRET_KEY`（由应用自身完成）
 
 WebSocket 终端需使用支持其升级的 WSGI 服务器。本项目采用 `gunicorn` 的**线程型 worker**（`--threads`），因为每个活跃 WebSocket 会话会占用一个线程；不要使用 `gevent`/`eventlet`（会 monkey-patch 线程，导致本项目的 `threading.Thread` + 阻塞 `os.read` 行为异常）。
+
+**终端权限**：默认服务以 `ply` 用户运行，但安装脚本会为 `ply` 配置免密 sudo，因此 Web 终端内可直接执行 `sudo` 命令（如 `sudo apt update`、`sudo systemctl restart xxx`）。如需关闭，可在安装时设 `PLY_SUDO=0`。
 
 常用命令：
 

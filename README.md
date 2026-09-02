@@ -120,6 +120,32 @@ journalctl -u ply -f       # 查看日志
 
 若要对外提供 HTTPS，建议用 Nginx/Caddy 反向代理到 `0.0.0.0:8000` 上游，同时将 `SESSION_COOKIE_SECURE` 置为 `True`。
 
+## 更新部署
+
+代码更新并推送到仓库后，用下面任一方式更新服务器上的服务（不会清空数据库与配置）。
+
+### 方式一：重跑安装脚本（推荐）
+
+`install.sh` 是幂等的，重复运行会自动 `git pull` 最新代码、重装依赖并重启服务：
+
+```bash
+# 本地或已在服务器上
+sudo bash install.sh
+
+# 或远端一键
+curl -fsSL https://raw.githubusercontent.com/WenAnrong/ply/main/install.sh | sudo bash
+```
+
+### 方式二：手动更新
+
+```bash
+cd /opt/ply
+sudo git pull --ff-only
+sudo /opt/ply/.venv/bin/pip install -r requirements.txt   # 依赖有变化时才需要
+sudo systemctl restart ply
+sudo journalctl -u ply -f                                 # 观察日志确认正常
+```
+
 ## 开发环境
 
 ### 前置

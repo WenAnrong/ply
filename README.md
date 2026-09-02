@@ -14,7 +14,8 @@
 
 - 已测试系统：**Debian 13**（同时支持 Ubuntu / CentOS / RockyLinux / openSUSE Leap）
 - 需要 **Python ≥ 3.10**
-- 需要系统包：`git`、`python3`、`python3-pip`、`tmux`（安装脚本会自动安装）
+- 需要系统包：`git`、`python3`、`python3-pip`、`tmux`、`curl`（安装脚本会自动安装）
+- 需要 **Docker + Docker Compose**（安装脚本会通过官方 `get.docker.com` 脚本自动安装）
 
 ## 快速安装（生产部署）
 
@@ -41,13 +42,14 @@ sudo bash install.sh
 脚本会自动完成：
 
 1. 识别发行版并选择包管理器（`apt` / `dnf` / `yum` / `zypper`）；
-2. 安装系统依赖（`git`、`python3`、`pip`、`tmux`）；
-3. 检测 `python >= 3.10`（优先 `3.13/3.12/3.11/3.10/python3`）；
-4. 从仓库克隆源码到 `/opt/ply`；
-5. 创建虚拟环境并安装 `requirements.txt` 依赖，以及 `gunicorn`；
-6. 创建服务用户 `ply`，并准备数据目录 `/var/lib/ply` 与配置目录 `/etc/ply`；
-7. 生成 systemd 服务 `ply.service`，开机自启并立即启动；
-8. 为服务用户 `ply` 配置免密 sudo，Web 终端内可直接执行 `sudo` 命令。
+2. 安装系统依赖（`git`、`python3`、`pip`、`tmux`、`curl`）；
+3. 通过官方 `curl -fsSL https://get.docker.com | sh` 安装 **Docker 与 Docker Compose**；
+4. 检测 `python >= 3.10`（优先 `3.13/3.12/3.11/3.10/python3`）；
+5. 从仓库克隆源码到 `/opt/ply`；
+6. 创建虚拟环境并安装 `requirements.txt` 依赖，以及 `gunicorn`；
+7. 创建服务用户 `ply`，并准备数据目录 `/var/lib/ply` 与配置目录 `/etc/ply`；
+8. 生成 systemd 服务 `ply.service`，开机自启并立即启动；
+9. 为服务用户 `ply` 配置免密 sudo，Web 终端内可直接执行 `sudo` 命令。
 
 安装完成后通过浏览器访问：`http://<服务器IP>:8000`
 

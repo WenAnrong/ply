@@ -69,16 +69,32 @@ log "检测到发行版: ${ID:-unknown} (${PRETTY_NAME:-?})"
 log "使用包管理器: $PKG_MANAGER"
 
 # ---------- 安装系统依赖 ----------
-log "安装系统依赖 (git / python3 / pip / tmux)"
+log "安装系统依赖 (git / python3 / pip / tmux / curl)"
 case "$PKG_MANAGER" in
   apt-get)
     apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y git python3 python3-venv python3-pip tmux sudo
+    DEBIAN_FRONTEND=noninteractive apt-get install -y git python3 python3-venv python3-pip tmux sudo curl
     ;;
-  dnf)  dnf install -y git python3 python3-pip tmux sudo ;;
-  yum)  yum install -y git python3 python3-pip tmux sudo ;;
-  zypper) zypper --non-interactive install git python3 python3-pip tmux sudo ;;
+  dnf)  dnf install -y git python3 python3-pip tmux sudo curl ;;
+  yum)  yum install -y git python3 python3-pip tmux sudo curl ;;
+  zypper) zypper --non-interactive install git python3 python3-pip tmux sudo curl ;;
 esac
+
+# ---------- 安装 Docker 与 Docker Compose ----------
+log "安装 Docker 与 Docker Compose（官方 get.docker.com 脚本）"
+command -v curl >/dev/null 2>&1 || err "缺少 curl，无法使用 get.docker.com 脚本"
+curl -fsSL https://get.docker.com | sh
+# 确保 Docker 服务启动（systemd 环境）
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl enable --now docker >/dev/null 2>&1 || true
+fi
+command -v docker >/dev/null 2>&1 || err "Docker 安装失败"
+log "Docker 版本: $(docker --version 2>&1)"
+if docker compose version >/dev/null 2>&1; then
+  log "Docker Compose 版本: $(docker compose version 2>&1)"
+else
+  err "Docker Compose 插件未安装"
+fi
 
 # ---------- 找到 Python >= 3.10 ----------
 find_python() {

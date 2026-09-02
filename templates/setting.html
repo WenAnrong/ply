@@ -1,0 +1,153 @@
+<!-- 继承 base.html -->
+{% extends "base.html" %}
+
+<!-- 覆盖父模板的 title block -->
+{% block title %}设置 · ply面板{% endblock %}
+
+<!-- 覆盖页面标题 -->
+{% block page_title %}设置{% endblock %}
+
+<!-- 填充父模板的 content block -->
+{% block content %}
+
+	<div class="panel">
+		<div class="panel-header">更改密码</div>
+		<div class="panel-body">
+			<form method="post" action="{{ url_for('setting.change_password') }}" novalidate>
+				<input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+				<div class="form-group">
+					<label for="current_password">当前密码</label>
+					<input
+						type="password"
+						id="current_password"
+						name="current_password"
+						placeholder="请输入当前密码"
+						autocomplete="current-password"
+						required
+					/>
+				</div>
+
+				<div class="form-group">
+					<label for="new_password">新密码</label>
+					<input
+						type="password"
+						id="new_password"
+						name="new_password"
+						placeholder="请输入新密码"
+						autocomplete="new-password"
+						required
+					/>
+					<small class="field-hint" id="new-hint">至少 6 位</small>
+				</div>
+
+				<div class="form-group">
+					<label for="confirm_password">确认新密码</label>
+					<input
+						type="password"
+						id="confirm_password"
+						name="confirm_password"
+						placeholder="请再次输入新密码"
+						autocomplete="new-password"
+						required
+					/>
+					<small class="field-hint" id="confirm-hint"></small>
+				</div>
+
+				<button type="submit" class="btn btn-primary" id="change-password-btn" disabled>更新密码</button>
+			</form>
+		</div>
+	</div>
+
+{% endblock %}
+
+{% block scripts %}
+	<script>
+		(function () {
+			var form = document.querySelector('.panel-body form');
+			var newPass = document.getElementById('new_password');
+			var confirm = document.getElementById('confirm_password');
+			var newHint = document.getElementById('new-hint');
+			var confirmHint = document.getElementById('confirm-hint');
+			var submitBtn = document.getElementById('change-password-btn');
+
+			function setState(input, hint, msg, defaultText) {
+				if (msg) {
+					hint.textContent = msg;
+					hint.classList.add('is-error');
+					input.classList.add('input-invalid');
+				} else {
+					hint.textContent = defaultText || '';
+					hint.classList.remove('is-error');
+					input.classList.remove('input-invalid');
+				}
+			}
+
+			// 新密码：≥ 6 位
+			function checkNewPassword(force) {
+				var v = newPass.value;
+				if (v === '') {
+					setState(newPass, newHint, force || newPass._touched ? '请填写新密码' : '', '至少 6 位');
+				} else if (v.length < 6) {
+					setState(newPass, newHint, '新密码至少 6 位，还需 ' + (6 - v.length) + ' 位');
+				} else {
+					setState(newPass, newHint, '', '至少 6 位');
+				}
+				checkConfirm();
+			}
+
+			// 确认密码：与两次输入一致
+			function checkConfirm(force) {
+				var v = confirm.value;
+				if (v === '') {
+					setState(confirm, confirmHint, force || confirm._touched ? '请再次输入新密码' : '');
+				} else if (v !== newPass.value) {
+					setState(confirm, confirmHint, '两次输入的新密码不一致');
+				} else {
+					setState(confirm, confirmHint, '');
+				}
+			}
+
+			// 只有「新密码 ≥ 6 位」且「两次输入一致」时才允许提交
+			function updateSubmitState() {
+				submitBtn.disabled = !(
+					newPass.value.length >= 6 &&
+					confirm.value !== '' &&
+					confirm.value === newPass.value
+				);
+			}
+
+			newPass.addEventListener('input', function () {
+				newPass._touched = true;
+				checkNewPassword();
+				updateSubmitState();
+			});
+			newPass.addEventListener('blur', function () {
+				newPass._touched = true;
+				checkNewPassword(true);
+				updateSubmitState();
+			});
+			confirm.addEventListener('input', function () {
+				confirm._touched = true;
+				checkConfirm();
+				updateSubmitState();
+			});
+			confirm.addEventListener('blur', function () {
+				confirm._touched = true;
+				checkConfirm(true);
+				updateSubmitState();
+			});
+
+			// 提交兜底：整体校验
+			form.addEventListener('submit', function (e) {
+				checkNewPassword(true);
+				checkConfirm(true);
+				var firstInvalid = form.querySelector('.input-invalid');
+				if (firstInvalid) {
+					e.preventDefault();
+					firstInvalid.focus();
+				}
+			});
+		})();
+	</script>
+{% endblock %}

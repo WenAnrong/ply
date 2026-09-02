@@ -105,10 +105,6 @@ log "使用 Python: $("$PYTHON" --version 2>&1)"
 
 # ---------- 获取源码 ----------
 log "获取源码: $REPO_URL"
-# 仓库可能由服务用户(ply)所有，而 git 以 root 运行，需添加安全目录避免 "dubious ownership"
-git config --system --add safe.directory "$INSTALL_DIR" 2>/dev/null \
-  || git config --global --add safe.directory "$INSTALL_DIR" 2>/dev/null \
-  || true
 if [[ -d "$INSTALL_DIR/.git" ]]; then
   git -C "$INSTALL_DIR" pull --ff-only
 elif [[ -e "$INSTALL_DIR" ]]; then
@@ -134,7 +130,9 @@ if ! id -u "$SERVICE_USER" >/dev/null 2>&1; then
   useradd --system --create-home --home-dir "/home/$SERVICE_USER" --shell /bin/bash "$SERVICE_USER"
 fi
 mkdir -p "$DATA_DIR" "$CONFIG_DIR"
-chown -R "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR" "$CONFIG_DIR" "$INSTALL_DIR"
+chown -R "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR" "$CONFIG_DIR"
+# 源码目录保持 root 所有，git(以 root 运行) 与属主一致，避免 "dubious ownership"
+chown -R root:root "$INSTALL_DIR"
 
 # ---------- 终端权限：允许服务用户免密 sudo ----------
 if [[ "${PLY_SUDO:-1}" != "0" ]]; then

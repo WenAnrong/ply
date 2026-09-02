@@ -15,7 +15,7 @@
 - 已测试系统：**Debian 13**（同时支持 Ubuntu / CentOS / RockyLinux / openSUSE Leap）
 - 需要 **Python ≥ 3.10**
 - 需要系统包：`git`、`python3`、`python3-pip`、`tmux`、`curl`（安装脚本会自动安装）
-- 需要 **Docker + Docker Compose**（安装脚本会通过官方 `get.docker.com` 脚本自动安装）
+- 需要 **Docker + Docker Compose**（安装脚本会通过官方 `get.docker.com` 脚本自动安装）。请自行解决网络问题，确保安装脚本能够顺利执行。
 
 ## 快速安装（生产部署）
 

@@ -708,6 +708,22 @@ textarea:focus {
     box-shadow: 0 0 0 3px var(--primary-soft);
 }
 
+/* JSON 配置编辑框 */
+.code-editor {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    white-space: pre;
+    tab-size: 2;
+    resize: vertical;
+}
+
+.form-actions {
+    margin-top: 16px;
+    display: flex;
+    gap: 12px;
+}
+
 /* 表格 */
 .table {
     width: 100%;

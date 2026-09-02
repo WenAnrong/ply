@@ -39,3 +39,22 @@ class User(UserMixin, db.Model):
 
     def __repr__(self):
         return f"<User {self.username}>"
+
+
+class Setting(db.Model):
+    """通用键值设置表
+
+    用于存放可在网页上修改的运行时配置（如 Docker 数据目录）。
+    读取时优先取这里，无记录则回退到 config 默认值。
+    """
+
+    __tablename__ = "setting"
+
+    key = db.Column(db.String(80), primary_key=True)
+    value = db.Column(db.Text, nullable=True)
+
+    @classmethod
+    def get(cls, key, default=None):
+        """读取设置项，找不到返回 default。"""
+        obj = db.session.get(cls, key)
+        return obj.value if obj and obj.value else default

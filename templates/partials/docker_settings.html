@@ -1,6 +1,62 @@
 <div class="panel">
-	<div class="panel-header">设置</div>
+	<div class="panel-header">Docker 数据目录</div>
 	<div class="panel-body">
-		<p class="page-subtitle">Docker 设置功能开发中…</p>
+		<form method="post" action="{{ url_for('docker.save_docker_data_dir') }}" novalidate>
+			<input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+			<label for="data_dir">数据目录</label>
+			<input type="text" id="data_dir" name="data_dir" value="{{ docker_data_dir }}" />
+			<small class="field-hint">用于存放 Docker 相关服务的数据、启动文件。默认：{{ docker_data_dir_default }}</small>
+			<div class="form-actions">
+				<button type="submit" class="btn">保存目录</button>
+			</div>
+		</form>
 	</div>
 </div>
+
+<div class="panel">
+	<div class="panel-header">docker配置文件</div>
+	<div class="panel-body">
+		{% if docker_config_error %}
+			<div class="alert alert-error">{{ docker_config_error }}</div>
+		{% endif %}
+
+		<p class="page-subtitle">
+			{{ docker_config_path }}{% if not docker_config_exists %}（文件不存在，保存时将新建）{% endif %}
+			· 保存后将自动重启 Docker
+		</p>
+
+		<form method="post" action="{{ url_for('docker.save_docker_config') }}" novalidate>
+			<input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+			<textarea
+				name="content"
+				spellcheck="false"
+				rows="10"
+				class="code-editor"
+			>{{ docker_config }}</textarea>
+			<div class="form-actions">
+				<button type="submit" class="btn btn-primary" id="save-docker-config">保存并重启 Docker</button>
+			</div>
+		</form>
+	</div>
+</div>
+
+<script>
+	(function () {
+		var btn = document.getElementById("save-docker-config");
+		if (!btn) return;
+		btn.addEventListener("click", function (e) {
+			var form = e.target.form;
+			var text = form.querySelector("textarea").value;
+			try {
+				JSON.parse(text);
+			} catch (err) {
+				e.preventDefault();
+				alert("配置不是合法的 JSON：" + err.message);
+				return;
+			}
+			if (!confirm("保存后将重启 Docker，确认继续？")) {
+				e.preventDefault();
+			}
+		});
+	})();
+</script>

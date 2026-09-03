@@ -6,6 +6,7 @@ import json
 import os
 import re
 import subprocess
+import time
 
 from flask import Blueprint
 from flask import flash
@@ -330,24 +331,32 @@ def settings():
 def save_docker_config():
     content = request.form.get("content", "")
 
-    # 1. 校验 JSON 合法性
-    try:
-        parsed = json.loads(content)
-    except json.JSONDecodeError as e:
-        flash(f"配置不是合法的 JSON：{e}", "error")
-        return redirect(url_for("docker.settings"))
-
-    # 2. 备份原文件（文件不存在时跳过）
+    # 备份原文件（文件不存在时跳过）
     _sudo(["cp", DOCKER_DAEMON_JSON, DOCKER_DAEMON_JSON + ".bak"])
 
-    # 3. 写入新配置（通过 stdin 交给 sudo tee，以 root 写）
-    payload = json.dumps(parsed, ensure_ascii=False, indent=2) + "\n"
+    # 写入新配置（通过 stdin 交给 sudo tee，以 root 写）
+    payload = content + "\n"
     write = _sudo(["tee", DOCKER_DAEMON_JSON], stdin=payload)
     if write.returncode != 0:
         flash("写入失败：" + (write.stderr or "权限不足"), "error")
         return redirect(url_for("docker.settings"))
 
-    # 4. 重启 Docker 使配置生效
+    # 缓冲/确认：先把文件刷入磁盘、稍等片刻，再读回校验，
+    # 避免 dockerd 在重启瞬间读到空/被截断的 daemon.json 而启动失败。
+    _sudo(["sync"])
+    time.sleep(0.5)
+    try:
+        with open(DOCKER_DAEMON_JSON, "r", encoding="utf-8") as f:
+            written = f.read()
+        if not written.strip():
+            raise ValueError("写入内容为空")
+        json.loads(written)
+    except Exception as e:
+        flash("写入内容校验失败，为避免 Docker 无法启动，未重启：" + str(e), "error")
+        return redirect(url_for("docker.settings"))
+
+    # 先清除可能已耗尽的启动限流，再重启，确保能真正启动
+    _sudo(["systemctl", "reset-failed", "docker"])
     restart = _sudo(["systemctl", "restart", "docker"])
     if restart.returncode != 0:
         flash("配置已保存，但 Docker 重启失败：" + (restart.stderr or ""), "error")

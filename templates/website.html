@@ -10,6 +10,10 @@
 <!-- 填充父模板的 content block -->
 {% block content %}
 
+	<script src="{{ url_for('static', filename='js/codemirror/lib/codemirror.min.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/codemirror/addon/edit/matchbrackets.min.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/codemirror/addon/edit/closebrackets.min.js') }}"></script>
+
 	<!-- 顶部子导航栏 -->
 	<nav class="subnav" id="website-subnav" aria-label="网站管理">
 		<a

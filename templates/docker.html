@@ -10,6 +10,15 @@
 <!-- 填充父模板的 content block -->
 {% block content %}
 
+	<!-- CodeMirror 依赖：页级加载一次并常驻，避免 htmx 局部刷新时异步加载导致 CodeMirror 未定义 -->
+	<script src="{{ url_for('static', filename='js/codemirror/lib/codemirror.min.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/codemirror/mode/javascript/javascript.min.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/codemirror/lib/jsonlint.min.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/codemirror/addon/lint/lint.min.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/codemirror/addon/lint/json-lint.min.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/codemirror/addon/edit/matchbrackets.min.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/codemirror/addon/edit/closebrackets.min.js') }}"></script>
+
 	<!-- 顶部子导航栏 -->
 	<nav class="subnav" id="docker-subnav" aria-label="Docker 管理">
 		<a

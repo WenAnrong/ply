@@ -74,6 +74,8 @@ fi
 log "检查 Caddy（仅检测，不自动安装）"
 if command -v caddy >/dev/null 2>&1; then
   log "Caddy 已安装: $(caddy version 2>&1 | head -n1)"
+  log "启用并启动 Caddy 服务"
+  sudo systemctl enable --now caddy
 else
   log "[警告] 未检测到 Caddy，面板可继续安装，但网站管理功能不可用（见 README.md）。"
 fi

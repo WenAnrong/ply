@@ -7,12 +7,56 @@
 - **仪表盘**：实时展示 CPU、内存、交换分区、磁盘使用率，以及主机名、系统发行版、内核、IP、开机时长等信息。
 - **在线终端**：浏览器内 Web 终端，基于 `flask-sock` WebSocket + `pty` + `tmux`，断线后会话保留、重连可恢复。
 - **Docker 管理**：三个子页——服务、镜像、设置。
-- **网站管理**：简单管理caddy的网站。
+- **网站管理**：编辑 Caddy 配置 + 临时站点（把本机端口通过 Caddy 暴露成临时访问地址，用后即关）。
 - **设置**：系统配置、用户管理等。
 
 ## Docker 管理
 
 Docker 模块遵循「**只读展示 + 快捷开关**」的轻量路线，创建、配置与拉取等操作交给面板内置终端。
+
+
+## 网站管理（临时站点）
+
+用于快速把一个**本机端口**通过 Caddy 暴露成一个临时访问地址，适合「临时用用、用完就关」的场景。
+
+### 工作方式
+
+- 面板维护自己的一份片段文件（默认 `/etc/caddy/ply-temp.caddy`），里面只有 `/<code>` 路径的反向代理规则，**不含域名**。
+- **面板不会改动你的主 Caddyfile**。域名完全由你在自己的 Caddyfile 里指定，只需在某个域名的 site 块里 `import` 该片段即可。
+- 临时站点有有效期（TTL，默认 24 小时），到期后自动下线并从片段移除；也可在面板手动「关闭」。**下线后该路径即不可访问**。
+- 过期记录保留最新 1 条用于追溯，其余删除。
+
+### 一次性配置（在你的 Caddyfile 中）
+
+为某个域名创建 site 块，并在其中 `import` 面板的片段，同时让根路径返回空响应：
+
+```caddy
+example.com {
+    # 你自己的长期服务配置（若有）
+
+    import /etc/caddy/ply-temp.caddy
+    respond "" 204
+}
+```
+
+- `import /etc/caddy/ply-temp.caddy`：引入面板生成的临时站点路由（只含 `/<code>` 路径）。
+- `respond "" 204`：让 `example.com` 根路径返回空响应。
+
+改完后执行 `caddy reload`（或 `systemctl restart caddy`）。
+
+### 如何使用
+
+1. 进入面板「网站 → 临时站点」。
+2. 填写本机端口并选择有效期，点击「创建」。
+3. 面板生成一个随机路径 `/xxxx`，并写入片段文件。
+4. 通过 `https://你的域名/xxxx` 访问即可。
+5. 用完点「关闭」，或等 TTL 到期自动下线。
+
+### 后台清理
+
+生产安装时，若检测到 Caddy，`install.sh` 会创建一个 **systemd timer**（默认每 5 分钟）运行 `scripts/cleanup_temp_sites.py`，自动把过期站点下线并更新片段与 Caddy。
+
+> 注意：`caddy reload` 需要 Caddy 的 admin API（默认 localhost:2019）在线；若你关闭了 admin API，`reload` 会失败，可改用 `systemctl restart caddy`（会有短暂停机）。
 
 
 ## 系统要求

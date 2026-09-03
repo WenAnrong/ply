@@ -1,6 +1,135 @@
+<!-- 新建临时站点 -->
+<div class="panel">
+	<div class="panel-header">新建临时站点</div>
+	<div class="panel-body">
+		<form method="post" action="{{ url_for('website.create_temp_site') }}" novalidate>
+			<input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+			<div class="form-group">
+				<label for="port">本机端口</label>
+				<input
+					type="number"
+					id="port"
+					name="port"
+					min="1"
+					max="65535"
+					placeholder="如 3000"
+					required
+				/>
+			</div>
+			<div class="form-group">
+				<label for="ttl_hours">有效期</label>
+				<select id="ttl_hours" name="ttl_hours">
+					{% for opt in ttl_options %}
+						<option value="{{ opt }}" {% if opt == 24 %}selected{% endif %}>
+							{% if opt == 0 %}永久{% else %}{{ opt }} 小时{% endif %}
+						</option>
+					{% endfor %}
+				</select>
+			</div>
+			<div class="form-actions">
+				<button type="submit" class="btn btn-primary">创建</button>
+			</div>
+		</form>
+	</div>
+</div>
+
+<!-- 临时站点列表 -->
 <div class="panel">
 	<div class="panel-header">临时站点</div>
 	<div class="panel-body">
-		<p class="page-subtitle">临时站点管理功能开发中…</p>
+		{% if temp_sites %}
+			<table class="table">
+				<thead>
+					<tr>
+						<th>路径</th>
+						<th>端口</th>
+						<th>创建时间</th>
+						<th>过期时间</th>
+						<th>状态</th>
+						<th style="width: 130px;"></th>
+					</tr>
+				</thead>
+				<tbody>
+					{% for site in temp_sites %}
+					<tr>
+						<td><code>/{{ site.code }}</code></td>
+						<td><code>{{ site.port }}</code></td>
+						<td>{{ site.created_at.strftime('%Y-%m-%d %H:%M') if site.created_at else '' }}</td>
+						<td>
+							{% if site.expires_at %}
+								{{ site.expires_at.strftime('%Y-%m-%d %H:%M') }}
+							{% else %}
+								永久
+							{% endif %}
+						</td>
+						<td>{{ '在线' if site.status == 'active' else '已关闭' }}</td>
+						<td>
+							{% if site.status == 'active' %}
+								<button type="button" class="btn btn-icon" data-copy="/{{ site.code }}" title="复制访问路径">复制</button>
+								<form
+									method="post"
+									action="{{ url_for('website.close_temp_site', code=site.code) }}"
+									class="inline-form"
+									data-confirm="确定关闭临时站点 /{{ site.code }} 吗？"
+									novalidate
+								>
+									<input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+									<button type="submit" class="btn btn-danger btn-icon" title="关闭">关闭</button>
+								</form>
+							{% else %}
+								<span class="page-subtitle">已下线</span>
+							{% endif %}
+						</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+			<p class="page-subtitle">
+				访问：在每个临时站点路径前拼接你自己的域名，例如 <code>https://你的域名/&lt;code&gt;</code>（域名由你在 Caddyfile 中指定）。
+			</p>
+		{% else %}
+			<p class="page-subtitle">暂无临时站点。在上方创建一个并绑定一个本机端口。</p>
+		{% endif %}
 	</div>
 </div>
+
+<!-- 教程卡片 -->
+<div class="panel">
+	<div class="panel-header">如何在 Caddy 中启用</div>
+	<div class="panel-body">
+		<p class="page-subtitle">
+			面板只会生成并更新它自己的片段文件 <code>{{ temp_snippet_path }}</code>，
+			<strong>不会改动</strong>你的主 Caddyfile。请在你的 Caddyfile 里为某个域名创建 site 块，并在块内 <code>import</code> 该片段：
+		</p>
+		<pre class="code-editor">{{ temp_snippet_example }}</pre>
+		<p class="page-subtitle">
+			说明：<code>import</code> 引入面板生成的临时站点路由（只含 <code>/&lt;code&gt;</code> 路径，不含域名）；
+			<code>respond "" 204</code> 让根路径返回空响应。<br/>
+			如果用面板修改，修改完成后点击保存即可。如果手动修改了 Caddyfile，请在修改后执行 <code>caddy reload</code> 让 Caddy 重新加载配置。
+		</p>
+	</div>
+</div>
+
+<script>
+	(function () {
+		// 复制访问路径
+		document.querySelectorAll("[data-copy]").forEach(function (el) {
+			el.addEventListener("click", function () {
+				var text = el.getAttribute("data-copy");
+				if (navigator.clipboard && navigator.clipboard.writeText) {
+					navigator.clipboard.writeText(text).then(function () {
+						var old = el.textContent;
+						el.textContent = "已复制";
+						setTimeout(function () { el.textContent = old; }, 1200);
+					});
+				}
+			});
+		});
+		// 关闭确认
+		document.querySelectorAll("form[data-confirm]").forEach(function (form) {
+			form.addEventListener("submit", function (e) {
+				if (!confirm(form.getAttribute("data-confirm"))) e.preventDefault();
+			});
+		});
+	})();
+</script>

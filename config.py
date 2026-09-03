@@ -44,6 +44,14 @@ class BaseConfig:
     SESSION_COOKIE_SAMESITE = "Lax"
     SESSION_COOKIE_SECURE = False
 
+    # ---- 临时站点（Caddy path 反向代理）----
+    # 默认 TTL（小时）
+    TEMP_SITE_DEFAULT_TTL_HOURS = 24
+    # 面板管理的独立片段文件
+    TEMP_SITE_SNIPPET_PATH = "/etc/caddy/ply-temp.caddy"
+    # 可选时长（小时），0 = 永久不过期
+    TEMP_SITE_TTL_OPTIONS = [1, 4, 12, 24, 0]
+
 
 class DevelopmentConfig(BaseConfig):
     """开发环境"""

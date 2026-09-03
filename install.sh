@@ -176,6 +176,39 @@ else
   err "服务启动失败，请查看日志: journalctl -u $SERVICE_NAME -e"
 fi
 
+# ---------- 临时站点清理 timer（仅当安装了 Caddy） ----------
+if command -v caddy >/dev/null 2>&1; then
+  log "创建临时站点清理 systemd timer"
+  cat > "/etc/systemd/system/${SERVICE_NAME}-temp-cleanup.service" <<EOF
+[Unit]
+Description=ply temp sites cleanup
+After=network.target
+
+[Service]
+Type=oneshot
+User=$SERVICE_USER
+Group=$SERVICE_USER
+WorkingDirectory=$INSTALL_DIR
+Environment=FLASK_CONFIG=production
+Environment=PYTHONUNBUFFERED=1
+ExecStart=$INSTALL_DIR/.venv/bin/python scripts/cleanup_temp_sites.py
+EOF
+  cat > "/etc/systemd/system/${SERVICE_NAME}-temp-cleanup.timer" <<EOF
+[Unit]
+Description=Run ply temp sites cleanup every 5 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+Unit=${SERVICE_NAME}-temp-cleanup.service
+
+[Install]
+WantedBy=timers.target
+EOF
+  systemctl daemon-reload
+  systemctl enable --now "${SERVICE_NAME}-temp-cleanup.timer"
+fi
+
 # ---------- 输出 ----------
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 PORT="${BIND##*:}"

@@ -43,6 +43,12 @@ echo "==> 停止并禁用服务"
 systemctl stop "$SERVICE_NAME" 2>/dev/null || true
 systemctl disable "$SERVICE_NAME" 2>/dev/null || true
 rm -f "/etc/systemd/system/$SERVICE_NAME.service"
+
+# 清理临时站点 timer（若存在）
+systemctl stop "${SERVICE_NAME}-temp-cleanup.timer" 2>/dev/null || true
+systemctl disable "${SERVICE_NAME}-temp-cleanup.timer" 2>/dev/null || true
+rm -f "/etc/systemd/system/${SERVICE_NAME}-temp-cleanup.service"
+rm -f "/etc/systemd/system/${SERVICE_NAME}-temp-cleanup.timer"
 systemctl daemon-reload || true
 
 # 删除目录

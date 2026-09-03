@@ -1,54 +1,60 @@
 # ply 服务器面板
 
-一个轻量的 Flask 服务器管理面板，提供系统资源监控、在线终端、Docker 管理、账号与安全设置等功能。前端使用原生 `htmx` 做局部刷新，终端基于 `WebSocket + tmux` 实现持久会话。
-
-面板秉持「**轻量 + 保留掌控感**」的设计理念：**负责让你一眼看清状态、一键做日常开关；容器的创建、配置与镜像拉取等重活交给内置终端**，不做功能堆砌。
+一个轻量的 Flask 服务器管理面板，提供系统资源监控、在线终端、Docker 管理、账号与安全设置等功能。
 
 ## 功能特性
 
-- **仪表盘**：实时展示 CPU、内存、交换分区、磁盘使用率，以及主机名、系统发行版、内核、IP、开机时长等信息（通过 `htmx` 定时轮询 `/stats` 局部更新）。
+- **仪表盘**：实时展示 CPU、内存、交换分区、磁盘使用率，以及主机名、系统发行版、内核、IP、开机时长等信息。
 - **在线终端**：浏览器内 Web 终端，基于 `flask-sock` WebSocket + `pty` + `tmux`，断线后会话保留、重连可恢复。
-- **Docker 管理**：三个子页——
-  - **服务**：区分 Compose 项目与普通容器，卡片化展示（名称、镜像、状态、端口映射），每个项目/容器按运行状态提供 `up` / `stop` / `down`（删除）一键开关；compose 项目自动读取并显示配置目录。
-  - **镜像**：列出本地镜像（名称 / ID / 大小）并支持删除。
-  - **设置**：编辑 Docker 守护进程配置 `/etc/docker/daemon.json`。
-  - 提示：容器/镜像的创建、拉取与配置请在面板内置终端用 `docker compose` / `docker` 命令完成。
-- **账号管理**：注册 / 登录 / 退出；首次部署通过 `/register` 创建第一个管理员；登录后仅管理员可改密码。
-- **安全设置**：CSRF 保护（Flask-WTF）、密码哈希存储、未登录全局拦截。
-- **主题**：响应式侧边栏布局，支持移动端。
+- **Docker 管理**：三个子页——服务、镜像、设置。
+- **网站管理**：简单管理caddy的网站。
+- **设置**：系统配置、用户管理等。
 
 ## Docker 管理
 
 Docker 模块遵循「**只读展示 + 快捷开关**」的轻量路线，创建、配置与拉取等操作交给面板内置终端。
 
-### 服务
-
-- 自动从容器标签区分 **Compose 项目** 和 **普通容器**。
-- 每个容器以卡片展示：名称、镜像、运行状态、端口映射、容器 ID（截短）。
-- **Compose 项目**：项目头显示配置目录；按钮按状态显示——运行中 `stop` / `down`，停止后 `up` / `down`。
-- **普通容器**：运行中 `stop`，停止后 `up` / `删除`。
-
-> `docker compose stop` 只停止容器（保留）；`down` 会停止并移除项目容器/网络（下次 `up` 重新创建）。普通容器「删除」用 `docker rm`，运行中的容器需先停止。
-
-### 镜像
-
-- 展示本地镜像列表（名称 / ID / 大小），支持删除（有二次确认）。
-- 拉取镜像请在终端执行 `docker pull <镜像名>`。
-
-### 设置
-
-- 编辑 Docker 守护进程配置文件 `/etc/docker/daemon.json`，保存前校验 JSON 并自动备份，保存后自动重启 Docker。
 
 ## 系统要求
 
-- 已测试系统：**Debian 13**（同时支持 Ubuntu / CentOS / RockyLinux / openSUSE Leap）
-- 需要 **Python ≥ 3.10**
-- 需要系统包：`git`、`python3`、`python3-pip`、`tmux`、`curl`（安装脚本会自动安装）
-- 需要 **Docker + Docker Compose**（安装脚本会通过官方 `get.docker.com` 脚本自动安装）。请自行解决网络问题，确保安装脚本能够顺利执行。
+- 已测试系统：**Debian 13**（支持带有 `Python ≥ 3.10` 和 `systemd` 的发行版）
+- 需要 **Python ≥ 3.10**，且包含 `venv` / `ensurepip`（部分发行版需额外安装 `python3-venv`）
+- 需要系统包：`git`、`tmux`、`sudo`、以及 systemd 的 `systemctl`（**这些需你手动安装**，安装脚本只检测、不自动安装）
+- **Docker + Docker Compose v2 插件为可选**，用于面板的 Docker 管理功能；未安装时面板仍可运行，只是 Docker 页面不可用（**Docker 同样需你手动安装**）
+- **Caddy 为可选**，用于面板的网站管理功能；未安装时面板仍可运行，只是网站管理页面不可用（**Caddy 同样需你手动安装**）
 
 ## 快速安装（生产部署）
 
-### 一键运行（无需手动下载脚本）
+### 1. 安装依赖（手动）
+
+安装脚本**不会**自动安装系统依赖与 Docker，请先按你的发行版安装：
+
+```bash
+# Debian / Ubuntu
+sudo apt update && sudo apt install -y git python3 python3-venv tmux sudo
+
+# CentOS / Rocky / AlmaLinux
+sudo dnf install -y git python3 python3-pip tmux sudo
+
+# openSUSE Leap
+sudo zypper --non-interactive install git python3 python3-pip tmux sudo
+```
+
+> 需要 **Python ≥ 3.10** 且含 `venv`/`ensurepip`；Debian 12/13、Ubuntu 22.04+ 默认即满足。版本过低请先升级 Python。
+
+**docker 与 docker-compose 插件可以用官方脚本一键安装：**
+
+```bash
+# Docker 官方安装脚本（仅安装 Docker 与 Compose 插件）
+curl -fsSL https://get.docker.com | sudo bash
+```
+
+**caddy 安装：**
+
+按照官方文档进行安装：https://caddyserver.com.cn/docs/install#debian-ubuntu-raspbian
+
+
+### 2. 一键运行（无需手动下载脚本）
 
 在服务器上直接执行下面任一命令，会自动下载并运行安装脚本：
 
@@ -60,31 +66,9 @@ curl -fsSL https://raw.githubusercontent.com/WenAnrong/ply/main/install.sh | sud
 wget -qO- https://raw.githubusercontent.com/WenAnrong/ply/main/install.sh | sudo bash
 ```
 
-### 本地运行
+默认配置安装完成后通过浏览器访问：`http://<服务器IP>:8000`
 
-如果你已经下载或克隆了仓库，也可以直接在项目根目录执行：
-
-```bash
-sudo bash install.sh
-```
-
-脚本会自动完成：
-
-1. 识别发行版并选择包管理器（`apt` / `dnf` / `yum` / `zypper`）；
-2. 安装系统依赖（`git`、`python3`、`pip`、`tmux`、`curl`）；
-3. 通过官方 `curl -fsSL https://get.docker.com | sh` 安装 **Docker 与 Docker Compose**；
-4. 检测 `python >= 3.10`（优先 `3.13/3.12/3.11/3.10/python3`）；
-5. 从仓库克隆源码到 `/opt/ply`；
-6. 创建虚拟环境并安装 `requirements.txt` 依赖，以及 `gunicorn`；
-7. 创建服务用户 `ply`，并准备数据目录 `/var/lib/ply` 与配置目录 `/etc/ply`；
-8. 生成 systemd 服务 `ply.service`，开机自启并立即启动；
-9. 为服务用户 `ply` 配置免密 sudo，Web 终端内可直接执行 `sudo` 命令。
-
-安装完成后通过浏览器访问：`http://<服务器IP>:8000`
-
-> 首次使用：打开 `/register` 页面创建第一个管理员账户（数据库为空时才允许注册）。
-
-### 安装脚本参数
+### 安装脚本参数（高级配置）
 
 可通过环境变量覆盖默认值：
 
@@ -123,6 +107,8 @@ wget -qO- https://raw.githubusercontent.com/WenAnrong/ply/main/uninstall.sh | su
 
 ### 本地运行
 
+如果你克隆了源码可以用这个命令：
+
 ```bash
 sudo bash uninstall.sh
 ```
@@ -137,8 +123,6 @@ sudo bash uninstall.sh
 - 配置文件：`/etc/ply/config.ini`
 - 首次启动自动生成随机 `SECRET_KEY`（由应用自身完成）
 
-WebSocket 终端需使用支持其升级的 WSGI 服务器。本项目采用 `gunicorn` 的**线程型 worker**（`--threads`），因为每个活跃 WebSocket 会话会占用一个线程；不要使用 `gevent`/`eventlet`（会 monkey-patch 线程，导致本项目的 `threading.Thread` + 阻塞 `os.read` 行为异常）。
-
 **终端权限**：默认服务以 `ply` 用户运行，但安装脚本会为 `ply` 配置免密 sudo，因此 Web 终端内可直接执行 `sudo` 命令（如 `sudo apt update`、`sudo systemctl restart xxx`）。如需关闭，可在安装时设 `PLY_SUDO=0`。
 
 常用命令：
@@ -148,8 +132,6 @@ systemctl status ply       # 查看状态
 systemctl restart ply      # 重启
 journalctl -u ply -f       # 查看日志
 ```
-
-若要对外提供 HTTPS，建议用 Nginx/Caddy 反向代理到 `0.0.0.0:8000` 上游，同时将 `SESSION_COOKIE_SECURE` 置为 `True`。
 
 ## 更新部署
 
@@ -223,23 +205,6 @@ secret_key = <随机生成的密钥>
 
 应用首次启动时若 `config.ini` 不存在会自动生成随机 `SECRET_KEY`。
 
-## 目录结构
-
-```
-├── app.py                 # Flask 应用入口、扩展初始化、全局登录拦截
-├── config.py              # 环境配置（development / production）与 config.ini 处理
-├── models.py              # SQLAlchemy 数据模型（User）
-├── requirements.txt       # Python 依赖
-├── VERSION                # 版本号文件（关于页用于版本对比）
-├── install.sh             # 一键安装脚本
-├── uninstall.sh           # 卸载脚本
-├── static/                # 静态资源（CSS / JS / 图片）
-├── templates/             # Jinja2 模板（含 partials/ 局部片段）
-└── views/                 # 蓝图：dashboard / terminal / auth / setting / about / docker / website
-```
-
 ## 常见问题
 
 - **首次注册后无法再注册**：设计如此——仅当数据库无用户时才开放 `/register`，用于创建初始管理员。
-- **终端连接失败**：请确认部署在支持 WebSocket 的服务（`gunicorn --threads`）下，且 `tmux` 已安装。
-- **服务启动失败**：执行 `journalctl -u ply -e` 查看日志，常见原因为端口占用或 `/var/lib/ply`、`/etc/ply` 权限不对。

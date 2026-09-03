@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
-# ply 服务器面板 一键安装脚本
-# 支持发行版: Debian / Ubuntu / CentOS / RockyLinux / openSUSE Leap
+# ply 服务器面板 安装脚本（简化版）
+# 只检测必需依赖并组装运行环境，不自动安装系统依赖或 Docker。
+# 具体的系统依赖 / Docker 安装方式请参考 README.md。
 #
 # 用法(需要 root):
 #   sudo bash install.sh
@@ -41,64 +42,40 @@ err() { echo "[错误] $*" >&2; exit 1; }
 # ---------- root 检查 ----------
 [[ $EUID -eq 0 ]] || err "请使用 root 运行: sudo bash $0"
 
-# ---------- 发行版识别 ----------
-[[ -r /etc/os-release ]] || err "无法读取 /etc/os-release"
-# shellcheck disable=SC1091
-. /etc/os-release
-PKG_MANAGER=""
-case "${ID:-}" in
-  debian | ubuntu) PKG_MANAGER="apt-get" ;;
-  centos | rocky | rhel | almalinux | fedora)
-    if command -v dnf >/dev/null 2>&1; then PKG_MANAGER="dnf"; else PKG_MANAGER="yum"; fi
-    ;;
-  opensuse-leap | opensuse | sles | suse) PKG_MANAGER="zypper" ;;
-esac
-# 依据 ID_LIKE 兜底
-if [[ -z "$PKG_MANAGER" ]]; then
-  case "${ID_LIKE:-}" in
-    *debian*) PKG_MANAGER="apt-get" ;;
-    *rhel* | *fedora*)
-      if command -v dnf >/dev/null 2>&1; then PKG_MANAGER="dnf"; else PKG_MANAGER="yum"; fi
-      ;;
-    *suse*) PKG_MANAGER="zypper" ;;
-  esac
+# ---------- 必需依赖预检（缺失则无法继续，安装方式见 README.md） ----------
+log "检查必需依赖"
+MISSING=()
+command -v git       >/dev/null 2>&1 || MISSING+=("git")
+command -v tmux      >/dev/null 2>&1 || MISSING+=("tmux")
+command -v sudo      >/dev/null 2>&1 || MISSING+=("sudo")
+command -v systemctl >/dev/null 2>&1 || MISSING+=("systemctl")
+if [[ ${#MISSING[@]} -gt 0 ]]; then
+  err "缺少必需软件: ${MISSING[*]}，请先安装后再运行（安装方式见 README.md）"
 fi
-[[ -n "$PKG_MANAGER" ]] || err "不支持的发行版: ${ID:-unknown}"
+log "依赖检测通过 (git / tmux / sudo / systemctl)"
 
-log "检测到发行版: ${ID:-unknown} (${PRETTY_NAME:-?})"
-log "使用包管理器: $PKG_MANAGER"
-
-# ---------- 安装系统依赖 ----------
-log "安装系统依赖 (git / python3 / pip / tmux / curl)"
-case "$PKG_MANAGER" in
-  apt-get)
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y git python3 python3-venv python3-pip tmux sudo curl
-    ;;
-  dnf)  dnf install -y git python3 python3-pip tmux sudo curl ;;
-  yum)  yum install -y git python3 python3-pip tmux sudo curl ;;
-  zypper) zypper --non-interactive install git python3 python3-pip tmux sudo curl ;;
-esac
-
-# ---------- 安装 Docker 与 Docker Compose ----------
-log "检查 Docker 是否已安装"
+# ---------- Docker 检测（仅提示，不自动安装） ----------
+log "检查 Docker（仅检测，不自动安装）"
 if command -v docker >/dev/null 2>&1; then
-  log "检测到 Docker 已安装，跳过安装脚本"
+  log "Docker 已安装: $(docker --version 2>&1)"
+  if docker compose version >/dev/null 2>&1; then
+    log "Docker Compose v2 插件: $(docker compose version 2>&1 | head -n1)"
+  elif command -v docker-compose >/dev/null 2>&1; then
+    log "[警告] 仅检测到 Docker Compose v1 命令(docker-compose)，但面板使用 docker compose 插件。"
+    log "       请安装 Docker Compose v2 插件（见 README.md），否则 Compose 项目管理不可用。"
+  else
+    log "[警告] 未检测到 Docker Compose 插件，面板的 Compose 项目管理功能不可用（见 README.md）。"
+  fi
 else
-  log "安装 Docker 与 Docker Compose（官方 get.docker.com 脚本）"
-  command -v curl >/dev/null 2>&1 || err "缺少 curl，无法使用 get.docker.com 脚本"
-  curl -fsSL https://get.docker.com | sh
+  log "[警告] 未检测到 Docker，面板可继续安装，但 Docker 管理页面不可用（见 README.md）。"
 fi
-# 确保 Docker 服务启动（systemd 环境）
-if command -v systemctl >/dev/null 2>&1; then
-  systemctl enable --now docker >/dev/null 2>&1 || true
-fi
-command -v docker >/dev/null 2>&1 || err "Docker 安装失败"
-log "Docker 版本: $(docker --version 2>&1)"
-if docker compose version >/dev/null 2>&1; then
-  log "Docker Compose 版本: $(docker compose version 2>&1)"
+
+# ---------- Caddy 检测（仅提示，不自动安装） ----------
+log "检查 Caddy（仅检测，不自动安装）"
+if command -v caddy >/dev/null 2>&1; then
+  log "Caddy 已安装: $(caddy version 2>&1 | head -n1)"
 else
-  err "Docker Compose 插件未安装，请先自行安装"
+  log "[警告] 未检测到 Caddy，面板可继续安装，但网站管理功能不可用（见 README.md）。"
 fi
 
 # ---------- 找到 Python >= 3.10 ----------
@@ -121,8 +98,13 @@ find_python() {
   done
   return 1
 }
-PYTHON="$(find_python)" || err "未找到 Python >= 3.10。请先安装 Python 3.10+ (例如 Debian/Ubuntu: sudo apt install python3.11)"
+PYTHON="$(find_python)" || err "未找到 Python >= 3.10。请先安装 Python 3.10+（安装方式见 README.md）"
 log "使用 Python: $("$PYTHON" --version 2>&1)"
+
+# 校验虚拟环境模块可用（某些发行版需额外安装 python3-venv）
+if ! "$PYTHON" -c 'import venv, ensurepip' >/dev/null 2>&1; then
+  err "$PYTHON 缺少 venv/ensurepip，无法创建虚拟环境。请安装 python3-venv（见 README.md）"
+fi
 
 # ---------- 获取源码 ----------
 log "获取源码: $REPO_URL"

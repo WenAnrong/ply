@@ -1,0 +1,56 @@
+<div class="panel">
+	<div class="panel-header">Caddy 配置文件</div>
+	<div class="panel-body">
+		{% if caddy_config_error %}
+			<div class="alert alert-error">{{ caddy_config_error }}</div>
+		{% endif %}
+
+		<p class="page-subtitle">
+			{{ caddy_config_path }}{% if not caddy_config_exists %}（文件不存在，保存时将新建）{% endif %}
+			· 保存后将自动重启 Caddy
+		</p>
+
+		<form method="post" action="{{ url_for('website.save_caddy_config') }}" novalidate>
+			<input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+			<textarea
+				name="content"
+				id="caddy-config-editor"
+				spellcheck="false"
+				rows="10"
+				class="code-editor"
+			>{{ caddy_config }}</textarea>
+			<div class="form-actions">
+				<button type="submit" class="btn btn-primary" id="save-caddy-config">保存并重启 Caddy</button>
+			</div>
+		</form>
+	</div>
+</div>
+
+<script src="{{ url_for('static', filename='js/codemirror/lib/codemirror.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/codemirror/addon/edit/matchbrackets.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/codemirror/addon/edit/closebrackets.min.js') }}"></script>
+<script>
+	(function () {
+		var textarea = document.getElementById("caddy-config-editor");
+		if (!textarea) return;
+
+		var editor = CodeMirror.fromTextArea(textarea, {
+			lineNumbers: true,
+			lineWrapping: true,
+			matchBrackets: true,
+			autoCloseBrackets: true,
+			indentUnit: 2,
+			tabSize: 2,
+			extraKeys: { "Ctrl-S": function () { textarea.form.requestSubmit(); } }
+		});
+		editor.setSize("100%", 320);
+
+		var form = textarea.form;
+		form.addEventListener("submit", function (e) {
+			editor.save();
+			if (!confirm("保存后将重启 Caddy，确认继续？")) {
+				e.preventDefault();
+			}
+		});
+	})();
+</script>

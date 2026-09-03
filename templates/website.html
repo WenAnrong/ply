@@ -10,11 +10,50 @@
 <!-- 填充父模板的 content block -->
 {% block content %}
 
-	<div class="panel">
-		<div class="panel-header">网站管理</div>
-		<div class="panel-body">
-			<p class="page-subtitle">网站管理功能开发中…</p>
-		</div>
+	<!-- 顶部子导航栏 -->
+	<nav class="subnav" id="website-subnav" aria-label="网站管理">
+		<a
+			class="subnav-item {% if active_tab == 'sites' %}active{% endif %}"
+			href="{{ url_for('website.index') }}"
+			hx-get="{{ url_for('website.index') }}"
+			hx-target="#website-content"
+			hx-select="#website-content"
+			hx-swap="innerHTML"
+			hx-push-url="true"
+		>临时站点</a>
+		<a
+			class="subnav-item {% if active_tab == 'settings' %}active{% endif %}"
+			href="{{ url_for('website.settings') }}"
+			hx-get="{{ url_for('website.settings') }}"
+			hx-target="#website-content"
+			hx-select="#website-content"
+			hx-swap="innerHTML"
+			hx-push-url="true"
+		>设置</a>
+	</nav>
+
+	<div id="website-content">
+		{% if active_tab == 'sites' %}
+			{% include "partials/website_sites.html" %}
+		{% elif active_tab == 'settings' %}
+			{% include "partials/website_settings.html" %}
+		{% endif %}
 	</div>
 
+{% endblock %}
+
+{% block scripts %}
+	<script>
+		// 切换 tab 时高亮当前选中项（子导航栏在 #website-content 之外，不随内容一起替换）
+		document.body.addEventListener("htmx:beforeRequest", function (evt) {
+			var link = evt.target;
+			if (!link.classList || !link.classList.contains("subnav-item")) {
+				return;
+			}
+			document.querySelectorAll("#website-subnav .subnav-item").forEach(function (el) {
+				el.classList.remove("active");
+			});
+			link.classList.add("active");
+		});
+	</script>
 {% endblock %}

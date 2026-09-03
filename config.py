@@ -44,7 +44,9 @@ class BaseConfig:
     SESSION_COOKIE_SAMESITE = "Lax"
     SESSION_COOKIE_SECURE = False
 
-    # ---- 临时站点（Caddy path 反向代理）----
+    # ---- 临时站点（Caddy 泛域名反向代理）----
+    # 泛域名基准域名自动从主 Caddyfile 中识别
+    # （找到包含 import TEMP_SITE_SNIPPET_PATH 的 site 块，取其站点地址）。
     # 默认 TTL（小时）
     TEMP_SITE_DEFAULT_TTL_HOURS = 24
     # 面板管理的独立片段文件

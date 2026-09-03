@@ -21,17 +21,20 @@ Docker 模块遵循「**只读展示 + 快捷开关**」的轻量路线，创建
 
 ### 工作方式
 
-- 面板维护自己的一份片段文件（默认 `/etc/caddy/ply-temp.caddy`），里面只有 `/<code>` 路径的反向代理规则，**不含域名**。
-- **面板不会改动你的主 Caddyfile**。域名完全由你在自己的 Caddyfile 里指定，只需在某个域名的 site 块里 `import` 该片段即可。
-- 临时站点有有效期（TTL，默认 24 小时），到期后自动下线并从片段移除；也可在面板手动「关闭」。**下线后该路径即不可访问**。
+- 面板维护自己的一份片段文件（默认 `/etc/caddy/ply-temp.caddy`），里面是**泛域名反向代理**规则：每个临时站点对应一个子域名 `<code>.<域名>`。
+- **面板不会改动你的主 Caddyfile**。你只需在 Caddyfile 里为泛域名（`*.<域名>`）创建 site 块并 `import` 该片段即可。
+- 泛域名基准域名**无需配置**，面板会自动从主 Caddyfile 中识别：找到包含 `import /etc/caddy/ply-temp.caddy` 的 site 块，取其地址（如 `*.example.com`）提取为 `example.com`。
+- 临时站点有有效期（TTL，默认 24 小时），到期后自动下线并从片段移除；也可在面板手动「关闭」。**下线后该子域名即不可访问**。
 - 过期记录保留最新 1 条用于追溯，其余删除。
 
 ### 一次性配置（在你的 Caddyfile 中）
 
-为某个域名创建 site 块，并在其中 `import` 面板的片段，同时让根路径返回空响应：
+为泛域名创建 site 块，并在其中 `import` 面板的片段，同时让未匹配的子域名返回空响应：
+
+**HTTPS（默认，Caddy 自动申请证书）：**
 
 ```caddy
-example.com {
+*.example.com {
     # 你自己的长期服务配置（若有）
 
     import /etc/caddy/ply-temp.caddy
@@ -39,8 +42,23 @@ example.com {
 }
 ```
 
-- `import /etc/caddy/ply-temp.caddy`：引入面板生成的临时站点路由（只含 `/<code>` 路径）。
-- `respond "" 204`：让 `example.com` 根路径返回空响应。
+**HTTP（不想要 HTTPS）：** 在站点地址前加 `http://`，Caddy 只监听 80 端口、不申请证书。
+
+```caddy
+http://*.example.com {
+    # 你自己的长期服务配置（若有）
+
+    import /etc/caddy/ply-temp.caddy
+    respond "" 204
+}
+```
+
+- `import /etc/caddy/ply-temp.caddy`：引入面板生成的临时站点路由（每个站点一个 `@<code> host`，转发到对应端口）。
+- `respond "" 204`：让未匹配的子域名返回空响应。
+
+使用前请确保：
+- DNS 已添加 `*.example.com` 的泛域名解析并指向本机；
+- 若用 HTTPS，Caddy 需能为通配符或子域名签发证书（通配符证书需要 DNS-01 挑战）；HTTP 无需证书。
 
 改完后执行 `caddy reload`（或 `systemctl restart caddy`）。
 
@@ -48,8 +66,8 @@ example.com {
 
 1. 进入面板「网站 → 临时站点」。
 2. 填写本机端口并选择有效期，点击「创建」。
-3. 面板生成一个随机路径 `/xxxx`，并写入片段文件。
-4. 通过 `https://你的域名/xxxx` 访问即可。
+3. 面板生成一个随机子域名 `<code>.<域名>`，并写入片段文件。
+4. 通过 `https://<code>.<域名>` 访问即可。
 5. 用完点「关闭」，或等 TTL 到期自动下线。
 
 ### 后台清理

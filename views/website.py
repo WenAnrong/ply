@@ -48,14 +48,68 @@ def _read_caddyfile():
         return "", True, f"读取失败：{e}"
 
 
-def _build_temp_snippet(items):
-    """根据临时站点列表生成 Caddy 片段文本。"""
+def _strip_host(addr):
+    """从 Caddy 站点地址中提取基准域名（去掉通配符/端口/路径）。"""
+    addr = (addr or "").strip()
+    if addr.startswith("*."):
+        addr = addr[2:]
+    addr = addr.split("/", 1)[0]
+    addr = addr.split(":", 1)[0]
+    return addr.strip()
+
+
+def _detect_wildcard_domain():
+    """从主 Caddyfile 中自动识别泛域名基准域名。
+
+    找到包含 `import <TEMP_SITE_SNIPPET_PATH>` 的 site 块，
+    取其站点地址（如 *.example.com）并提取为 example.com。
+    未找到时返回空字符串。
+    """
+    snippet_path = current_app.config["TEMP_SITE_SNIPPET_PATH"]
+    if not os.path.exists(CADDYFILE_PATH):
+        return ""
+    try:
+        with open(CADDYFILE_PATH, "r", encoding="utf-8") as f:
+            lines = f.read().splitlines()
+    except Exception:
+        return ""
+
+    for i, line in enumerate(lines):
+        if "import" not in line or snippet_path not in line:
+            continue
+        # 向上查找包裹该 import 的 site 块起始行（以 { 结尾，且不在更深层块内）
+        depth = 0
+        for j in range(i - 1, -1, -1):
+            stripped = lines[j].split("#", 1)[0].strip()
+            if not stripped:
+                continue
+            if stripped.endswith("}"):
+                depth += 1
+            elif stripped.endswith("{"):
+                if depth > 0:
+                    depth -= 1
+                else:
+                    addr = _strip_host(stripped[:-1])
+                    if addr:
+                        return addr
+    return ""
+
+
+def _build_temp_snippet(items, domain):
+    """根据临时站点列表与泛域名生成 Caddy 片段文本。
+
+    每个临时站点绑定到 <code>.<domain> 子域名，并反向代理到本机端口 port。
+    """
     lines = [
         "# ply 临时站点片段（由面板自动生成，请勿手改）",
-        "# 请在你的 Caddyfile 的某个域名 site 块内 import 本文件，域名由你指定。",
+        "# 请在你的 Caddyfile 的泛域名 site 块（如 *."
+        + domain
+        + "）内 import 本文件。",
     ]
     for it in items:
-        lines.append("handle_path /%s/* {" % it.code)
+        host = "%s.%s" % (it.code, domain)
+        lines.append("@%s host %s" % (it.code, host))
+        lines.append("handle @%s {" % it.code)
         lines.append("    reverse_proxy 127.0.0.1:%d" % it.port)
         lines.append("}")
     return "\n".join(lines) + "\n"
@@ -67,6 +121,12 @@ def _write_temp_snippet():
     只写 TEMP_SITE_SNIPPET_PATH（面板自有文件），不写用户主 Caddyfile。
     """
     path = current_app.config["TEMP_SITE_SNIPPET_PATH"]
+    domain = _detect_wildcard_domain()
+    if not domain:
+        raise RuntimeError(
+            "无法从主 Caddyfile 识别泛域名，请确认其中存在一个形如 "
+            "'*.example.com { import " + path + " }' 的 site 块"
+        )
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     items = (
         TemporarySite.query.filter(
@@ -77,7 +137,7 @@ def _write_temp_snippet():
         .all()
     )
 
-    content = _build_temp_snippet(items)
+    content = _build_temp_snippet(items, domain)
 
     lock = path + ".lock"
     tmp = path + ".tmp"
@@ -108,8 +168,8 @@ def _sync_temp_sites():
 
 
 def _gen_code(length=10):
-    """生成唯一随机路径段（base62）。"""
-    alphabet = string.ascii_letters + string.digits
+    """生成唯一随机子域名标签（小写字母 + 数字，便于作为子域名）。"""
+    alphabet = string.ascii_lowercase + string.digits
     while True:
         code = "".join(secrets.choice(alphabet) for _ in range(length))
         if not TemporarySite.query.filter_by(code=code).first():
@@ -134,8 +194,21 @@ def _apply_expired_retention():
 def index():
     temp_sites = TemporarySite.query.order_by(TemporarySite.created_at.desc()).all()
     snippet_path = current_app.config["TEMP_SITE_SNIPPET_PATH"]
+    temp_site_domain = _detect_wildcard_domain()
+    example_domain = temp_site_domain or "你的域名"
+    # HTTPS（默认，Caddy 自动申请证书）
     temp_snippet_example = (
-        "example.com {\n" "    import " + snippet_path + "\n" '    respond "" 204\n' "}"
+        "*." + example_domain + " {\n"
+        "    import " + snippet_path + "\n"
+        '    respond "" 204\n'
+        "}"
+    )
+    # HTTP（不想要 HTTPS：站点地址前加 http://，只监听 80 端口）
+    temp_snippet_example_http = (
+        "http://*." + example_domain + " {\n"
+        "    import " + snippet_path + "\n"
+        '    respond "" 204\n'
+        "}"
     )
     return render_template(
         "website.html",
@@ -144,6 +217,8 @@ def index():
         ttl_options=current_app.config["TEMP_SITE_TTL_OPTIONS"],
         temp_snippet_path=snippet_path,
         temp_snippet_example=temp_snippet_example,
+        temp_snippet_example_http=temp_snippet_example_http,
+        temp_site_domain=temp_site_domain,
     )
 
 
@@ -180,9 +255,11 @@ def create_temp_site():
     db.session.add(site)
     db.session.commit()
 
+    domain = _detect_wildcard_domain()
+    host = site.code + "." + domain if domain else site.code
     ok, err = _sync_temp_sites()
     if ok:
-        flash(f"临时站点已创建：/{site.code}", "success")
+        flash(f"临时站点已创建：{host}", "success")
     else:
         flash(f"临时站点已创建，但 Caddy 更新失败：{err}", "error")
 
@@ -202,9 +279,11 @@ def close_temp_site(code):
 
     # 保留最新 1 条过期记录，删除其余
     _apply_expired_retention()
+    domain = _detect_wildcard_domain()
+    host = code + "." + domain if domain else code
     ok, err = _sync_temp_sites()
     if ok:
-        flash(f"临时站点已关闭：/{code}", "success")
+        flash(f"临时站点已关闭：{host}", "success")
     else:
         flash(f"临时站点已关闭，但 Caddy 更新失败：{err}", "error")
 

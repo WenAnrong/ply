@@ -63,7 +63,7 @@ class User(UserMixin, db.Model):
 class TemporarySite(db.Model):
     """临时站点
 
-    每个临时站点对应 Caddy 里的一个路径段 /<code>，
+    每个临时站点对应泛域名下的一个子域名 <code>.<domain>，
     反向代理到本机端口 port；expires_at 为空表示永久不过期。
     """
 

@@ -1,3 +1,6 @@
+<!-- 临时站点（泛域名） -->
+{% set wildcard_domain = '*.' + temp_site_domain if temp_site_domain else '*.' + '你的域名' %}
+
 <!-- 新建临时站点 -->
 <div class="panel">
 	<div class="panel-header">新建临时站点</div>
@@ -37,11 +40,17 @@
 <div class="panel">
 	<div class="panel-header">临时站点</div>
 	<div class="panel-body">
+		{% if temp_site_domain %}
+			<div class="alert alert-info">当前泛域名：<code>*.{{ temp_site_domain }}</code>，每个临时站点将绑定到 <code>&lt;code&gt;.{{ temp_site_domain }}</code>。</div>
+		{% else %}
+			<div class="alert alert-warning">未在主 Caddyfile 中识别到泛域名。请确保主 Caddyfile 中存在形如 <code>*.example.com { import {{ temp_snippet_path }} }</code> 的 site 块，否则临时站点无法作为子域名访问。</div>
+		{% endif %}
+
 		{% if temp_sites %}
 			<table class="table">
 				<thead>
 					<tr>
-						<th>路径</th>
+						<th>子域名</th>
 						<th>端口</th>
 						<th>创建时间</th>
 						<th>过期时间</th>
@@ -51,8 +60,10 @@
 				</thead>
 				<tbody>
 					{% for site in temp_sites %}
+					{% set site_host = site.code + '.' + temp_site_domain if temp_site_domain else site.code %}
+					{% set site_url = '//' + site_host %}
 					<tr>
-						<td><code>/{{ site.code }}</code></td>
+						<td><a href="{{ site_url }}" target="_blank" rel="noopener"><code>{{ site_host }}</code></a></td>
 						<td><code>{{ site.port }}</code></td>
 						<td>{{ site.created_at.strftime('%Y-%m-%d %H:%M') if site.created_at else '' }}</td>
 						<td>
@@ -65,12 +76,12 @@
 						<td>{{ '在线' if site.status == 'active' else '已关闭' }}</td>
 						<td>
 							{% if site.status == 'active' %}
-								<button type="button" class="btn btn-icon" data-copy="/{{ site.code }}" title="复制访问路径">复制</button>
+								<button type="button" class="btn btn-icon" data-copy="{{ site_host }}" title="复制访问地址">复制</button>
 								<form
 									method="post"
 									action="{{ url_for('website.close_temp_site', code=site.code) }}"
 									class="inline-form"
-									data-confirm="确定关闭临时站点 /{{ site.code }} 吗？"
+									data-confirm="确定关闭临时站点 {{ site_host }} 吗？"
 									novalidate
 								>
 									<input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
@@ -85,7 +96,7 @@
 				</tbody>
 			</table>
 			<p class="page-subtitle">
-				访问：在每个临时站点路径前拼接你自己的域名，例如 <code>https://你的域名/&lt;code&gt;</code>（域名由你在 Caddyfile 中指定）。
+				访问：按你的 Caddy 配置选择协议，例如 <code>http://&lt;code&gt;.{{ temp_site_domain if temp_site_domain else '你的域名' }}</code> 或 <code>https://&lt;code&gt;.{{ temp_site_domain if temp_site_domain else '你的域名' }}</code>（请提前为 <code>{{ wildcard_domain }}</code> 配置泛域名解析；若用 HTTPS 还需通配符证书）。
 			</p>
 		{% else %}
 			<p class="page-subtitle">暂无临时站点。在上方创建一个并绑定一个本机端口。</p>
@@ -99,12 +110,19 @@
 	<div class="panel-body">
 		<p class="page-subtitle">
 			面板只会生成并更新它自己的片段文件 <code>{{ temp_snippet_path }}</code>，
-			<strong>不会改动</strong>你的主 Caddyfile。请在你的 Caddyfile 里为某个域名创建 site 块，并在块内 <code>import</code> 该片段：
+			<strong>不会改动</strong>你的主 Caddyfile。请在你的 Caddyfile 里为泛域名创建 site 块（<code>{{ wildcard_domain }}</code>），并在块内 <code>import</code> 该片段：
 		</p>
+
+		<p class="page-subtitle"><strong>HTTPS（默认）：</strong>Caddy 会自动申请并续期证书。</p>
 		<pre class="code-editor">{{ temp_snippet_example }}</pre>
+
+		<p class="page-subtitle"><strong>HTTP（不想要 HTTPS）：</strong>在站点地址前加 <code>http://</code>，Caddy 只监听 80 端口、不会申请证书。</p>
+		<pre class="code-editor">{{ temp_snippet_example_http }}</pre>
+
 		<p class="page-subtitle">
-			说明：<code>import</code> 引入面板生成的临时站点路由（只含 <code>/&lt;code&gt;</code> 路径，不含域名）；
-			<code>respond "" 204</code> 让根路径返回空响应。<br/>
+			说明：<code>import</code> 引入面板生成的临时站点路由（每个站点一个 <code>@&lt;code&gt; host</code> 匹配器，把 <code>&lt;code&gt;.{{ temp_site_domain if temp_site_domain else '你的域名' }}</code> 转发到对应端口）；
+			<code>respond "" 204</code> 让未匹配的子域名返回空响应。<br/>
+			使用泛域名前，请确保 DNS 中已添加 <code>{{ wildcard_domain }}</code> 指向本机；若用 HTTPS，请为 Caddy 配置通配符证书（需要 DNS-01 验证），Caddy默认无法为你申请证书	；HTTP 则无需证书。<br/>
 			如果用面板修改，修改完成后点击保存即可。如果手动修改了 Caddyfile，请在修改后执行 <code>caddy reload</code> 让 Caddy 重新加载配置。
 		</p>
 	</div>
@@ -112,7 +130,7 @@
 
 <script>
 	(function () {
-		// 复制访问路径
+		// 复制访问地址
 		document.querySelectorAll("[data-copy]").forEach(function (el) {
 			el.addEventListener("click", function () {
 				var text = el.getAttribute("data-copy");

@@ -49,12 +49,18 @@ def _read_caddyfile():
 
 
 def _strip_host(addr):
-    """从 Caddy 站点地址中提取基准域名（去掉通配符/端口/路径）。"""
+    """从 Caddy 站点地址中提取基准域名（去掉协议/通配符/端口/路径）。"""
     addr = (addr or "").strip()
+    # 去掉协议前缀，如 http:// 或 https://
+    if "://" in addr:
+        addr = addr.split("://", 1)[1]
+    # 去掉路径
+    addr = addr.split("/", 1)[0]
+    # 去掉端口
+    addr = addr.split(":", 1)[0]
+    # 去掉通配符
     if addr.startswith("*."):
         addr = addr[2:]
-    addr = addr.split("/", 1)[0]
-    addr = addr.split(":", 1)[0]
     return addr.strip()
 
 

@@ -775,6 +775,104 @@ code {
     border: 1px solid var(--border);
 }
 
+/* ---------- 服务卡片 ---------- */
+.svc-project {
+    margin-bottom: 20px;
+}
+
+.svc-project-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-bottom: 10px;
+    margin-bottom: 12px;
+    border-bottom: 1px dashed var(--border);
+}
+
+.svc-project-name {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.svc-project-dir {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.svc-project-count {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.svc-project-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.svc-cards {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+
+.svc-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.svc-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.svc-name {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.svc-status {
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
+.status-up {
+    color: #1f7a45;
+}
+
+.status-down {
+    color: var(--text-muted);
+}
+
+.svc-meta {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.svc-ports {
+    font-size: 0.8rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--text-muted);
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.svc-actions {
+    display: flex;
+    gap: 8px;
+}
+
 /* ---------- 终端 ---------- */
 /* JetBrainsMonoNerdFont 字体：缺失字符自动回退到系统字体 */
 @font-face {

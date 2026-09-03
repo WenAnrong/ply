@@ -4,6 +4,7 @@ Docker 管理模块
 
 import json
 import os
+import re
 import subprocess
 
 from flask import Blueprint
@@ -37,13 +38,14 @@ def _read_daemon_json():
         return "{}", True, f"读取失败：{e}"
 
 
-def _sudo(args, stdin=None):
+def _sudo(args, stdin=None, cwd=None):
     """以服务用户通过免密 sudo 执行系统命令，避免卡在密码输入。"""
     return subprocess.run(
         ["sudo", "-n", *args],
         input=stdin,
         capture_output=True,
         text=True,
+        cwd=cwd,
     )
 
 
@@ -67,6 +69,121 @@ def _list_images():
     return images, None
 
 
+def _list_containers():
+    """列出容器，区分 compose 项目与普通容器。
+
+    返回 (compose_projects, normal_containers, 错误信息)。
+    每个容器含 id/name/image/status/ports；compose 容器额外带 project/dir/config_files。
+    """
+    r = _sudo(
+        [
+            "docker",
+            "ps",
+            "-a",
+            "--format",
+            "{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}",
+        ]
+    )
+    if r.returncode != 0:
+        return (
+            [],
+            [],
+            r.stderr.strip() or "无法读取 Docker 容器（请确认 Docker 是否可用）",
+        )
+
+    rows = []
+    for line in r.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 5:
+            rows.append(
+                {
+                    "id": parts[0],
+                    "name": parts[1],
+                    "image": parts[2],
+                    "status": parts[3],
+                    "ports": parts[4],
+                }
+            )
+
+    if not rows:
+        return [], [], None
+
+    # 读取每个容器的 compose 标签（以容器名匹配，避免长短 ID 不一致）
+    labels = {}
+    ids = [row["id"] for row in rows]
+    inspect = _sudo(
+        [
+            "docker",
+            "inspect",
+            *ids,
+            "--format",
+            '{{.Name}}\t{{index .Config.Labels "com.docker.compose.project"}}\t{{index .Config.Labels "com.docker.compose.project.working_dir"}}\t{{index .Config.Labels "com.docker.compose.project.config_files"}}',
+        ]
+    )
+    if inspect.returncode == 0:
+        for line in inspect.stdout.splitlines():
+            parts = line.split("\t")
+            if len(parts) >= 4:
+                labels[parts[0].lstrip("/")] = {
+                    "project": parts[1],
+                    "dir": parts[2],
+                    "config_files": parts[3],
+                }
+
+    projects = {}
+    normal = []
+    for row in rows:
+        meta = labels.get(row["name"])
+        if meta and meta["project"]:
+            proj = meta["project"]
+            projects.setdefault(
+                proj,
+                {
+                    "name": proj,
+                    "dir": meta["dir"],
+                    "config_files": meta["config_files"],
+                    "containers": [],
+                },
+            )
+            projects[proj]["containers"].append(row)
+        else:
+            normal.append(row)
+
+    for p in projects.values():
+        p["running"] = sum(1 for c in p["containers"] if c["status"].startswith("Up"))
+        p["total"] = len(p["containers"])
+    return list(projects.values()), normal, None
+
+
+def _compose_args(project, action):
+    """构造针对某个 compose 项目的 docker compose 命令参数。
+
+    返回 (args, cwd)。优先用 config_files（可多个，逗号分隔）；缺失时退回使用 working_dir。
+    """
+    args = ["docker", "compose"]
+    raw = (project.get("config_files") or "").strip()
+    files = [f.strip() for f in re.split(r"[,]+", raw) if f.strip()]
+    cwd = None
+    if files:
+        for f in files:
+            args += ["-f", f]
+    elif project.get("dir"):
+        cwd = project["dir"]
+    args.append(action)
+    if action == "up":
+        args.append("-d")
+    return args, cwd
+
+
+def _find_compose_project(name):
+    """按项目名查找 compose 项目，找不到返回 None。"""
+    projects, _, _ = _list_containers()
+    for p in projects:
+        if p["name"] == name:
+            return p
+    return None
+
+
 @docker_bp.route("/docker")
 @login_required
 def index():
@@ -76,7 +193,110 @@ def index():
 @docker_bp.route("/docker/services")
 @login_required
 def services():
-    return render_template("docker.html", active_tab="services")
+    projects, normal, err = _list_containers()
+    return render_template(
+        "docker.html",
+        active_tab="services",
+        compose_projects=projects,
+        normal_containers=normal,
+        docker_services_error=err,
+    )
+
+
+@docker_bp.route("/docker/services/start", methods=["POST"])
+@login_required
+def container_start():
+    ref = request.form.get("ref", "").strip()
+    if not ref:
+        flash("未选择容器", "error")
+        return redirect(url_for("docker.services"))
+    r = _sudo(["docker", "start", ref])
+    if r.returncode != 0:
+        flash("启动失败：" + (r.stderr.strip() or "未知错误"), "error")
+    else:
+        flash(f"容器 {ref} 已启动", "success")
+    return redirect(url_for("docker.services"))
+
+
+@docker_bp.route("/docker/services/stop", methods=["POST"])
+@login_required
+def container_stop():
+    ref = request.form.get("ref", "").strip()
+    if not ref:
+        flash("未选择容器", "error")
+        return redirect(url_for("docker.services"))
+    r = _sudo(["docker", "stop", ref])
+    if r.returncode != 0:
+        flash("停止失败：" + (r.stderr.strip() or "未知错误"), "error")
+    else:
+        flash(f"容器 {ref} 已停止", "success")
+    return redirect(url_for("docker.services"))
+
+
+@docker_bp.route("/docker/services/compose/up", methods=["POST"])
+@login_required
+def compose_up():
+    name = request.form.get("project", "").strip()
+    project = _find_compose_project(name)
+    if not project:
+        flash("未找到项目", "error")
+        return redirect(url_for("docker.services"))
+    args, cwd = _compose_args(project, "up")
+    r = _sudo(args, cwd=cwd)
+    if r.returncode != 0:
+        flash("启动失败：" + (r.stderr.strip() or "未知错误"), "error")
+    else:
+        flash(f"项目 {name} 已启动", "success")
+    return redirect(url_for("docker.services"))
+
+
+@docker_bp.route("/docker/services/compose/down", methods=["POST"])
+@login_required
+def compose_down():
+    name = request.form.get("project", "").strip()
+    project = _find_compose_project(name)
+    if not project:
+        flash("未找到项目", "error")
+        return redirect(url_for("docker.services"))
+    args, cwd = _compose_args(project, "down")
+    r = _sudo(args, cwd=cwd)
+    if r.returncode != 0:
+        flash("停止失败：" + (r.stderr.strip() or "未知错误"), "error")
+    else:
+        flash(f"项目 {name} 已停止", "success")
+    return redirect(url_for("docker.services"))
+
+
+@docker_bp.route("/docker/services/compose/stop", methods=["POST"])
+@login_required
+def compose_stop():
+    name = request.form.get("project", "").strip()
+    project = _find_compose_project(name)
+    if not project:
+        flash("未找到项目", "error")
+        return redirect(url_for("docker.services"))
+    args, cwd = _compose_args(project, "stop")
+    r = _sudo(args, cwd=cwd)
+    if r.returncode != 0:
+        flash("停止失败：" + (r.stderr.strip() or "未知错误"), "error")
+    else:
+        flash(f"项目 {name} 已停止", "success")
+    return redirect(url_for("docker.services"))
+
+
+@docker_bp.route("/docker/services/delete", methods=["POST"])
+@login_required
+def container_delete():
+    ref = request.form.get("ref", "").strip()
+    if not ref:
+        flash("未选择容器", "error")
+        return redirect(url_for("docker.services"))
+    r = _sudo(["docker", "rm", ref])
+    if r.returncode != 0:
+        flash("删除失败：" + (r.stderr.strip() or "容器可能正在运行"), "error")
+    else:
+        flash(f"容器 {ref} 已删除", "success")
+    return redirect(url_for("docker.services"))
 
 
 @docker_bp.route("/docker/images")

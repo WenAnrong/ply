@@ -1,0 +1,34 @@
+<div class="svc-card">
+	<div class="svc-card-header">
+		<span class="svc-name" title="{{ c.name }}">{{ c.name }}</span>
+		<span class="svc-status {% if c.status.startswith('Up') %}status-up{% else %}status-down{% endif %}">{{ c.status }}</span>
+	</div>
+	<div class="svc-meta">
+		<code>{{ c.image }}</code> · <code>{{ c.id[:12] }}</code>
+	</div>
+	{% if c.ports %}
+		<div class="svc-ports" title="端口映射">{{ c.ports }}</div>
+	{% endif %}
+	{% if container_card_actions|default(true) %}
+	<div class="svc-actions">
+		{% if c.status.startswith('Up') %}
+			<form method="post" action="{{ url_for('docker.container_stop') }}" class="inline-form" novalidate>
+				<input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+				<input type="hidden" name="ref" value="{{ c.id }}" />
+				<button type="submit" class="btn">stop</button>
+			</form>
+		{% else %}
+			<form method="post" action="{{ url_for('docker.container_start') }}" class="inline-form" novalidate>
+				<input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+				<input type="hidden" name="ref" value="{{ c.id }}" />
+				<button type="submit" class="btn">up</button>
+			</form>
+			<form method="post" action="{{ url_for('docker.container_delete') }}" class="inline-form" data-confirm="确定要删除容器 {{ c.name }} 吗？" novalidate>
+				<input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+				<input type="hidden" name="ref" value="{{ c.id }}" />
+				<button type="submit" class="btn btn-danger">删除</button>
+			</form>
+		{% endif %}
+	</div>
+	{% endif %}
+</div>

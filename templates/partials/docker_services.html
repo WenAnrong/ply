@@ -1,6 +1,76 @@
+{% if docker_services_error %}
+	<div class="alert alert-error">{{ docker_services_error }}</div>
+{% endif %}
+
+{% if compose_projects %}
 <div class="panel">
-	<div class="panel-header">服务</div>
+	<div class="panel-header">Compose 项目</div>
 	<div class="panel-body">
-		<p class="page-subtitle">Docker 服务（容器）管理功能开发中…</p>
+		{% for project in compose_projects %}
+		<div class="svc-project">
+			<div class="svc-project-header">
+				<span class="svc-project-name">{{ project.name }}</span>
+				{% if project.dir %}
+					<span class="svc-project-dir">配置目录：<code>{{ project.dir }}</code></span>
+				{% endif %}
+				<div class="svc-project-actions">
+					<span class="svc-project-count">{{ project.containers | length }} 个容器</span>
+					{% if project.running > 0 %}
+						<form method="post" action="{{ url_for('docker.compose_stop') }}" class="inline-form" novalidate>
+							<input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+							<input type="hidden" name="project" value="{{ project.name }}" />
+							<button type="submit" class="btn">stop</button>
+						</form>
+					{% else %}
+						<form method="post" action="{{ url_for('docker.compose_up') }}" class="inline-form" novalidate>
+							<input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+							<input type="hidden" name="project" value="{{ project.name }}" />
+							<button type="submit" class="btn">up</button>
+						</form>
+					{% endif %}
+					<form method="post" action="{{ url_for('docker.compose_down') }}" class="inline-form" novalidate>
+						<input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+						<input type="hidden" name="project" value="{{ project.name }}" />
+						<button type="submit" class="btn btn-danger">down</button>
+					</form>
+				</div>
+			</div>
+			<div class="svc-cards">
+				{% for c in project.containers %}
+					{% set container_card_actions = False %}
+					{% include "partials/docker_container_card.html" with context %}
+				{% endfor %}
+			</div>
+		</div>
+		{% endfor %}
 	</div>
 </div>
+{% endif %}
+
+{% if normal_containers %}
+<div class="panel">
+	<div class="panel-header">普通容器</div>
+	<div class="panel-body">
+		<div class="svc-cards">
+			{% for c in normal_containers %}
+				{% set container_card_actions = True %}
+				{% include "partials/docker_container_card.html" with context %}
+			{% endfor %}
+		</div>
+	</div>
+</div>
+{% endif %}
+
+{% if not compose_projects and not normal_containers and not docker_services_error %}
+	<p class="page-subtitle">暂无容器</p>
+{% endif %}
+
+<script>
+	(function () {
+		document.querySelectorAll("#docker-content form[data-confirm]").forEach(function (form) {
+			form.addEventListener("submit", function (e) {
+				if (!confirm(form.getAttribute("data-confirm"))) e.preventDefault();
+			});
+		});
+	})();
+</script>

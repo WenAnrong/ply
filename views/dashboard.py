@@ -1,6 +1,7 @@
 import time
 import platform
 import socket
+import urllib.request
 from datetime import datetime
 
 from flask import Blueprint
@@ -16,6 +17,15 @@ def format_uptime(seconds):
     hours, rem = divmod(rem, 3600)
     minutes, secs = divmod(rem, 60)
     return f"{days}天 {hours}小时 {minutes}分钟"
+
+
+def _get_public_ip():
+    """获取公网出口 IP；失败返回 None。"""
+    try:
+        with urllib.request.urlopen("https://ifconfig.me", timeout=5) as resp:
+            return resp.read().decode().strip()
+    except Exception:
+        return None
 
 
 def _fmt_gb(value):
@@ -175,12 +185,16 @@ def get_system_info():
     except Exception:
         os_release = platform.platform()
 
+    # 公网出口 IP
+    public_ip = _get_public_ip()
+
     return {
         "hostname": socket.gethostname(),
         "os_release": os_release,
         "kernel": platform.release(),
         "machine": platform.machine(),
         "host_ip": host_ip,
+        "public_ip": public_ip or "—",
         "boot_time": boot_dt.strftime("%Y-%m-%d %H:%M:%S"),
         "uptime": format_uptime(time.time() - boot_time),
     }

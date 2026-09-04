@@ -223,6 +223,7 @@ Environment=PYTHONUNBUFFERED=1
 ExecStart=$INSTALL_DIR/.venv/bin/gunicorn -w $WORKERS --threads $THREADS -b $BIND app:app
 Restart=always
 RestartSec=3
+KillMode=process
 
 [Install]
 WantedBy=multi-user.target

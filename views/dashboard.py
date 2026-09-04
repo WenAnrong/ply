@@ -128,9 +128,11 @@ def get_live_stats():
 
     swap = psutil.swap_memory()
 
-    # 列出所有真实分区；主卡片显示使用率最高的盘
+    # 列出所有真实分区；主卡片优先展示根分区 /，否则回退到使用率最高的盘
     disk_details = get_disk_details()
-    disk_primary = max(disk_details, key=lambda d: d["percent"], default=None)
+    disk_primary = next((d for d in disk_details if d["mount"] == "/"), None)
+    if disk_primary is None:
+        disk_primary = max(disk_details, key=lambda d: d["percent"], default=None)
 
     cpu_detail = get_cpu_detail()
 

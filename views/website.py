@@ -85,11 +85,11 @@ def _strip_host(addr):
     return addr.strip()
 
 
-def _detect_wildcard_domain():
-    """从主 Caddyfile 中自动识别泛域名基准域名。
+def _find_wildcard_site_addr():
+    """从主 Caddyfile 中找到泛域名 site 块的地址行（含协议，如 *.example.com 或 http://*.example.com）。
 
     找到包含 `import <TEMP_SITE_SNIPPET_PATH>` 的 site 块，
-    取其站点地址（如 *.example.com）并提取为 example.com。
+    向上回溯定位其起始行（以 { 结尾，且不在更深层块内）。
     未找到时返回空字符串。
     """
     snippet_path = current_app.config["TEMP_SITE_SNIPPET_PATH"]
@@ -104,7 +104,6 @@ def _detect_wildcard_domain():
     for i, line in enumerate(lines):
         if "import" not in line or snippet_path not in line:
             continue
-        # 向上查找包裹该 import 的 site 块起始行（以 { 结尾，且不在更深层块内）
         depth = 0
         for j in range(i - 1, -1, -1):
             stripped = lines[j].split("#", 1)[0].strip()
@@ -116,10 +115,23 @@ def _detect_wildcard_domain():
                 if depth > 0:
                     depth -= 1
                 else:
-                    addr = _strip_host(stripped[:-1])
-                    if addr:
-                        return addr
+                    return stripped[:-1].strip()
     return ""
+
+
+def _detect_wildcard_domain():
+    """从主 Caddyfile 中自动识别泛域名基准域名。未找到时返回空字符串。"""
+    return _strip_host(_find_wildcard_site_addr())
+
+
+def _detect_wildcard_scheme():
+    """检测泛域名 site 块使用的协议（http/https）。未配置协议时默认 https。"""
+    addr = (_find_wildcard_site_addr() or "").strip()
+    if addr.startswith("http://"):
+        return "http"
+    if addr.startswith("https://"):
+        return "https"
+    return "https"
 
 
 def _build_temp_snippet(items, domain):
@@ -247,6 +259,7 @@ def index():
     temp_sites = TemporarySite.query.order_by(TemporarySite.created_at.desc()).all()
     snippet_path = current_app.config["TEMP_SITE_SNIPPET_PATH"]
     temp_site_domain = _detect_wildcard_domain()
+    temp_site_scheme = _detect_wildcard_scheme()
     example_domain = temp_site_domain or "你的域名"
     # HTTPS（默认，Caddy 自动申请证书）
     temp_snippet_example = (
@@ -271,6 +284,7 @@ def index():
         temp_snippet_example=temp_snippet_example,
         temp_snippet_example_http=temp_snippet_example_http,
         temp_site_domain=temp_site_domain,
+        temp_site_scheme=temp_site_scheme,
         caddy_installed=caddy_ok,
     )
 

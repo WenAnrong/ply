@@ -61,7 +61,7 @@
 				<tbody>
 					{% for site in temp_sites %}
 					{% set site_host = site.code + '.' + temp_site_domain if temp_site_domain else site.code %}
-					{% set site_url = '//' + site_host %}
+					{% set site_url = (temp_site_scheme or 'https') + '://' + site_host %}
 					<tr>
 						<td><a href="{{ site_url }}" target="_blank" rel="noopener"><code>{{ site_host }}</code></a></td>
 						<td><code>{{ site.port }}</code></td>

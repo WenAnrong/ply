@@ -146,37 +146,6 @@ def get_cpu_detail():
     }
 
 
-def _memory_segments(memory):
-    """内存条色块段占比（空闲段不返回，由轨道底色留白呈现）。
-
-    段1 已用 used   = total - available  进程/内核真实占用，不可回收
-    段2 可回收缓存  = available - free   内存紧张时可让出的 page cache 等
-
-    恒等式：(total-available) + (available-free) = total - free
-    所以两段之和自然小于 100%，剩余宽度即 free（轨道底色）。
-    """
-    total = memory.total
-    if not total:
-        return []
-    used = max(memory.total - memory.available, 0)
-    reclaim = max(memory.available - memory.free, 0)
-    pieces = [
-        ("used", "已用", used),
-        ("reclaim", "可回收缓存", reclaim),
-    ]
-    segments = []
-    for key, label, value in pieces:
-        segments.append(
-            {
-                "key": key,
-                "label": label,
-                "pct": round(value / total * 100, 2),
-                "text": f"{label} {_fmt_size(value, 3)}",
-            }
-        )
-    return segments
-
-
 def get_live_stats():
     """实时数据（供 htmx 定时轮询）"""
     memory = psutil.virtual_memory()
@@ -211,7 +180,6 @@ def get_live_stats():
         "disk_used": disk_primary["used"] if disk_primary else "—",
         "disk_total": disk_primary["total"] if disk_primary else "—",
         "memory_detail": memory_detail,
-        "mem_segments": _memory_segments(memory),
         "disk_details": disk_details,
         "swap_used": _fmt_size(swap.used, 3),
         "swap_total": _fmt_size(swap.total, 1),

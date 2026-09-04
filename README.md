@@ -21,9 +21,9 @@ Docker 模块遵循「**只读展示 + 快捷开关**」的轻量路线，创建
 
 ### 工作方式
 
-- 面板维护自己的一份片段文件（默认 `/etc/caddy/ply-temp.caddy`），里面是**泛域名反向代理**规则：每个临时站点对应一个子域名 `<code>.<域名>`。
+- 面板维护自己的一份片段文件（默认 `/etc/ply/ply-temp.caddy`，与面板 `config.ini` 同目录），里面是**泛域名反向代理**规则：每个临时站点对应一个子域名 `<code>.<域名>`。
 - **面板不会改动你的主 Caddyfile**。你只需在 Caddyfile 里为泛域名（`*.<域名>`）创建 site 块并 `import` 该片段即可。
-- 泛域名基准域名**无需配置**，面板会自动从主 Caddyfile 中识别：找到包含 `import /etc/caddy/ply-temp.caddy` 的 site 块，取其地址（如 `*.example.com`）提取为 `example.com`。
+- 泛域名基准域名**无需配置**，面板会自动从主 Caddyfile 中识别：找到包含 `import /etc/ply/ply-temp.caddy` 的 site 块，取其地址（如 `*.example.com`）提取为 `example.com`。
 - 临时站点有有效期（TTL，默认 24 小时），到期后自动下线并从片段移除；也可在面板手动「关闭」。**下线后该子域名即不可访问**。
 - 过期记录保留最新 1 条用于追溯，其余删除。
 
@@ -37,7 +37,7 @@ Docker 模块遵循「**只读展示 + 快捷开关**」的轻量路线，创建
 *.example.com {
     # 你自己的长期服务配置（若有）
 
-    import /etc/caddy/ply-temp.caddy
+    import /etc/ply/ply-temp.caddy
     respond "" 204
 }
 ```
@@ -48,12 +48,12 @@ Docker 模块遵循「**只读展示 + 快捷开关**」的轻量路线，创建
 http://*.example.com {
     # 你自己的长期服务配置（若有）
 
-    import /etc/caddy/ply-temp.caddy
+    import /etc/ply/ply-temp.caddy
     respond "" 204
 }
 ```
 
-- `import /etc/caddy/ply-temp.caddy`：引入面板生成的临时站点路由（每个站点一个 `@<code> host`，转发到对应端口）。
+- `import /etc/ply/ply-temp.caddy`：引入面板生成的临时站点路由（每个站点一个 `@<code> host`，转发到对应端口）。
 - `respond "" 204`：让未匹配的子域名返回空响应。
 
 使用前请确保：
@@ -130,33 +130,19 @@ wget -qO- https://raw.githubusercontent.com/WenAnrong/ply/main/install.sh | sudo
 
 默认配置安装完成后通过浏览器访问：`http://<服务器IP>:<端口>`，端口在 `12000-25000` 之间（首次安装自动随机生成，之后复用 `config.ini` 中已保存的端口）。
 
-### 安装脚本参数（高级配置）
+### 安装脚本参数
 
 可通过环境变量覆盖默认值：
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `PLY_REPO_URL` | `https://github.com/WenAnrong/ply` | 源码仓库地址 |
-| `PLY_INSTALL_DIR` | `/opt/ply` | 安装目录 |
-| `PLY_USER` | `ply` | 运行服务用户 |
-| `PLY_SERVICE_NAME` | `ply` | systemd 服务名 |
 | `PLY_PORT` | 自动（12000-25000） | 监听端口；未配置时优先从 `config.ini` 读取，没有再随机生成 |
-| `PLY_PORT_MIN` | `12000` | 端口范围下限 |
-| `PLY_PORT_MAX` | `25000` | 端口范围上限 |
-| `PLY_BIND` | `0.0.0.0:<PORT>` | 完整监听地址（会校验其中的端口是否在范围内） |
-| `PLY_WORKERS` | `1` | gunicorn worker 数 |
-| `PLY_THREADS` | `50` | gunicorn 线程数 |
-| `PLY_PYTHON` | 自动检测 | 指定 Python 解释器 |
-| `PLY_SUDO` | `1` | 为服务用户配置免密 sudo；设为 `0` 关闭 |
 
 示例：
 
 ```bash
 # 指定端口（需在 12000-25000 之间）
 sudo PLY_PORT=18000 bash install.sh
-
-# 或直接指定完整监听地址
-sudo PLY_BIND=0.0.0.0:18000 bash install.sh
 ```
 
 ## 卸载
@@ -164,14 +150,12 @@ sudo PLY_BIND=0.0.0.0:18000 bash install.sh
 ### 一键卸载（无需手动下载脚本）
 
 ```bash
-# 使用 curl（PLY_YES=1 跳过二次确认）
-curl -fsSL https://raw.githubusercontent.com/WenAnrong/ply/main/uninstall.sh | sudo PLY_YES=1 bash
+# 使用 curl
+curl -fsSL https://raw.githubusercontent.com/WenAnrong/ply/main/uninstall.sh | sudo bash
 
 # 或使用 wget
-wget -qO- https://raw.githubusercontent.com/WenAnrong/ply/main/uninstall.sh | sudo PLY_YES=1 bash
+wget -qO- https://raw.githubusercontent.com/WenAnrong/ply/main/uninstall.sh | sudo bash
 ```
-
-> 通过管道执行时 `read` 无法交互，故默认跳过二次确认；本地直接运行脚本则仍会有确认提示。
 
 ### 本地运行
 
@@ -191,7 +175,9 @@ sudo bash uninstall.sh
 - 配置文件：`/etc/ply/config.ini`（监听端口由安装脚本写入 `[server] port`，首次在 `12000-25000` 随机生成，之后复用）
 - 首次启动自动生成随机 `SECRET_KEY`（由应用自身完成）
 
-**终端权限**：默认服务以 `ply` 用户运行，但安装脚本会为 `ply` 配置免密 sudo，因此 Web 终端内可直接执行 `sudo` 命令（如 `sudo apt update`、`sudo systemctl restart xxx`）。如需关闭，可在安装时设 `PLY_SUDO=0`。
+**修改监听端口**：编辑 `/etc/ply/config.ini` 的 `[server] port`，然后重新运行 `install.sh`；或直接 `sudo PLY_PORT=18000 bash install.sh`。脚本会据端口重写 systemd 单元并重启服务，使新端口生效。
+
+**终端权限**：服务以 `ply` 用户运行，安装脚本会为 `ply` 配置免密 sudo，因此 Web 终端内可直接执行 `sudo` 命令（如 `sudo apt update`、`sudo systemctl restart xxx`）。
 
 常用命令：
 
@@ -280,3 +266,4 @@ port = <面板监听端口>
 ## 常见问题
 
 - **首次注册后无法再注册**：设计如此——仅当数据库无用户时才开放 `/register`，用于创建初始管理员。
+- **如何修改面板监听端口？**：编辑 `/etc/ply/config.ini` 的 `[server] port`，然后重新运行 `install.sh`；或直接 `sudo PLY_PORT=18000 bash install.sh`。脚本会据端口重写 systemd 单元并重启服务，使新端口生效。端口需在 `12000-25000` 之间，超出范围时指定 `PLY_PORT` 会报错退出（改 `config.ini` 则会回退为随机端口）。开发环境对应文件为项目 `tmp/config.ini`。

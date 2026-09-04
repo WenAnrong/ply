@@ -5,20 +5,13 @@
 # 用法(需要 root):
 #   sudo bash uninstall.sh
 #
-# 可用环境变量覆盖默认值:
-#   PLY_USER         服务用户(默认 ply)
-#   PLY_SERVICE_NAME systemd 服务名(默认 ply)
-#   PLY_INSTALL_DIR  安装目录(默认 /opt/ply)
-#   PLY_DATA_DIR     数据目录(默认 /var/lib/ply)
-#   PLY_CONFIG_DIR   配置目录(默认 /etc/ply)
-#
 set -euo pipefail
 
-SERVICE_NAME="${PLY_SERVICE_NAME:-ply}"
-SERVICE_USER="${PLY_USER:-ply}"
-INSTALL_DIR="${PLY_INSTALL_DIR:-/opt/ply}"
-DATA_DIR="${PLY_DATA_DIR:-/var/lib/ply}"
-CONFIG_DIR="${PLY_CONFIG_DIR:-/etc/ply}"
+SERVICE_NAME="ply"
+SERVICE_USER="ply"
+INSTALL_DIR="/opt/ply"
+DATA_DIR="/var/lib/ply"
+CONFIG_DIR="/etc/ply"
 
 err() { echo "[错误] $*" >&2; exit 1; }
 
@@ -32,10 +25,6 @@ echo "  数据目录  $DATA_DIR"
 echo "  配置目录  $CONFIG_DIR"
 if id -u "$SERVICE_USER" >/dev/null 2>&1; then
   echo "  服务用户  $SERVICE_USER (及其家目录)"
-fi
-if [[ "${PLY_YES:-}" != "1" ]]; then
-  read -r -p "确认继续吗? 输入 yes 继续: " ans
-  [[ "$ans" == "yes" ]] || { echo "已取消"; exit 0; }
 fi
 
 # 停止并禁用服务
@@ -55,6 +44,9 @@ systemctl daemon-reload || true
 echo "==> 删除数据/配置/安装目录"
 rm -rf "$DATA_DIR" "$CONFIG_DIR"
 rm -rf "$INSTALL_DIR"
+
+# 删除 sudoers 免密配置（若存在）
+rm -f "/etc/sudoers.d/$SERVICE_USER"
 
 # 删除服务用户
 if id -u "$SERVICE_USER" >/dev/null 2>&1; then

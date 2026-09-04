@@ -25,6 +25,7 @@ from views.docker import docker_bp
 from views.terminal import terminal_bp
 from views.terminal import terminal_sock
 from views.settings import setting_bp
+from views.website import ensure_temp_snippet
 from views.website import website_bp
 
 app = Flask(__name__)
@@ -99,6 +100,8 @@ if terminal_sock is not None:
 # 首次运行建表（表已存在时不会重复建）
 with app.app_context():
     db.create_all()
+    # 确保面板自有的 Caddy 临时站点片段文件存在（与 config.ini 一样在应用层处理）
+    ensure_temp_snippet()
 
 
 @app.errorhandler(404)

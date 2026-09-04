@@ -8,37 +8,24 @@
 #   sudo bash install.sh
 #
 # 可用环境变量覆盖默认值:
-#   PLY_REPO_URL     源码仓库地址
-#   PLY_INSTALL_DIR  安装目录(默认 /opt/ply)
-#   PLY_USER         运行服务用户(默认 ply)
-#   PLY_SERVICE_NAME systemd 服务名(默认 ply)
 #   PLY_PORT         监听端口(需在 12000-25000 之间；未配置时优先从 config.ini 读取，没有再随机生成)
-#   PLY_PORT_MIN     端口范围下限(默认 12000)
-#   PLY_PORT_MAX     端口范围上限(默认 25000)
-#   PLY_BIND         完整监听地址(默认 0.0.0.0:<PORT>)
-#   PLY_WORKERS      gunicorn worker 数(默认 1)
-#   PLY_THREADS      gunicorn 线程数(默认 50)
-#   PLY_PYTHON       指定 Python 解释器
-#   PLY_SUDO         为服务用户配置免密 sudo(默认 1, 设 0 关闭)
 #
 set -euo pipefail
 
 # ---------- 可配置参数 ----------
-REPO_URL="${PLY_REPO_URL:-https://github.com/WenAnrong/ply}"
-INSTALL_DIR="${PLY_INSTALL_DIR:-/opt/ply}"
-SERVICE_USER="${PLY_USER:-ply}"
-SERVICE_NAME="${PLY_SERVICE_NAME:-ply}"
-DATA_DIR="${PLY_DATA_DIR:-/var/lib/ply}"
-CONFIG_DIR="${PLY_CONFIG_DIR:-/etc/ply}"
-WORKERS="${PLY_WORKERS:-1}"
-THREADS="${PLY_THREADS:-50}"
+REPO_URL="https://github.com/WenAnrong/ply"
+INSTALL_DIR="/opt/ply"
+SERVICE_USER="ply"
+SERVICE_NAME="ply"
+DATA_DIR="/var/lib/ply"
+CONFIG_DIR="/etc/ply"
+WORKERS="1"
+THREADS="50"
 # 端口范围（12000-25000）
-PORT_MIN="${PLY_PORT_MIN:-12000}"
-PORT_MAX="${PLY_PORT_MAX:-25000}"
+PORT_MIN=12000
+PORT_MAX=25000
 # 面板配置文件（存放端口等；生产环境为 /etc/ply/config.ini）
 CONFIG_FILE="$CONFIG_DIR/config.ini"
-# Caddy 临时站点片段（面板自有文件，与 config.py 的 TEMP_SITE_SNIPPET_PATH 一致）
-CADDY_TEMP_SNIPPET="${CADDY_TEMP_SNIPPET:-/etc/caddy/ply-temp.caddy}"
 
 log() { echo; echo "==> $*"; }
 err() { echo "[错误] $*" >&2; exit 1; }
@@ -78,14 +65,6 @@ fi
 log "检查 Caddy（仅检测，不自动安装）"
 if command -v caddy >/dev/null 2>&1; then
   log "Caddy 已安装: $(caddy version 2>&1 | head -n1)"
-  # 确保面板自己的临时站点片段文件存在，否则 Caddy 的 import 会因文件缺失而启动失败
-  if [[ ! -e "$CADDY_TEMP_SNIPPET" ]]; then
-    log "创建临时站点片段文件: $CADDY_TEMP_SNIPPET"
-    cat > "$CADDY_TEMP_SNIPPET" <<'EOF'
-# ply 临时站点片段（由面板自动生成，请勿手改）
-# 请在你的 Caddyfile 的泛域名 site 块（如 *.example.com）内 import 本文件。
-EOF
-  fi
   log "启用并启动 Caddy 服务"
   sudo systemctl enable --now caddy
 else
@@ -94,13 +73,6 @@ fi
 
 # ---------- 找到 Python >= 3.10 ----------
 find_python() {
-  if [[ -n "${PLY_PYTHON:-}" ]]; then
-    command -v "$PLY_PYTHON" >/dev/null 2>&1 || err "找不到指定 Python: $PLY_PYTHON"
-    "$PLY_PYTHON" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' \
-      || err "指定的 Python $PLY_PYTHON 低于 3.10"
-    echo "$PLY_PYTHON"
-    return
-  fi
   local p
   for p in python3.13 python3.12 python3.11 python3.10 python3; do
     if command -v "$p" >/dev/null 2>&1; then
@@ -117,13 +89,8 @@ log "使用 Python: $("$PYTHON" --version 2>&1)"
 
 # ---------- 端口解析 & 写入配置文件（范围 12000-25000） ----------
 log "解析端口（范围 ${PORT_MIN}-${PORT_MAX}）"
-# 端口优先级：PLY_BIND > PLY_PORT > config.ini 已有值 > 随机生成
-SRC_PORT=""
-if [[ -n "${PLY_BIND:-}" ]]; then
-  SRC_PORT="${PLY_BIND##*:}"
-elif [[ -n "${PLY_PORT:-}" ]]; then
-  SRC_PORT="$PLY_PORT"
-fi
+# 端口优先级：PLY_PORT > config.ini 已有值 > 随机生成
+SRC_PORT="${PLY_PORT:-}"
 
 resolve_port() {
   "$PYTHON" - "$CONFIG_FILE" "$SRC_PORT" "$PORT_MIN" "$PORT_MAX" <<'PYEOF'
@@ -185,7 +152,7 @@ PYEOF
 }
 
 PORT="$(resolve_port)" || err "端口无效或超出范围 ${PORT_MIN}-${PORT_MAX}"
-BIND="${PLY_BIND:-0.0.0.0:$PORT}"
+BIND="0.0.0.0:$PORT"
 log "使用端口: $PORT（配置文件: $CONFIG_FILE）"
 
 # 校验虚拟环境模块可用（某些发行版需额外安装 python3-venv）
@@ -198,7 +165,7 @@ log "获取源码: $REPO_URL"
 if [[ -d "$INSTALL_DIR/.git" ]]; then
   git -C "$INSTALL_DIR" pull --ff-only
 elif [[ -e "$INSTALL_DIR" ]]; then
-  err "$INSTALL_DIR 已存在但不是 git 仓库，请先移除或设置 PLY_INSTALL_DIR"
+  err "$INSTALL_DIR 已存在但不是 git 仓库，请先移除 $INSTALL_DIR 后再运行"
 else
   git clone --depth 1 "$REPO_URL" "$INSTALL_DIR"
 fi
@@ -236,11 +203,9 @@ chown -R "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR" "$CONFIG_DIR"
 chown -R root:root "$INSTALL_DIR"
 
 # ---------- 终端权限：允许服务用户免密 sudo ----------
-if [[ "${PLY_SUDO:-1}" != "0" ]]; then
-  log "为 $SERVICE_USER 配置免密 sudo（终端可直接执行 sudo 命令）"
-  echo "$SERVICE_USER ALL=(ALL) NOPASSWD: ALL" > "/etc/sudoers.d/$SERVICE_USER"
-  chmod 0440 "/etc/sudoers.d/$SERVICE_USER"
-fi
+log "为 $SERVICE_USER 配置免密 sudo（终端可直接执行 sudo 命令）"
+echo "$SERVICE_USER ALL=(ALL) NOPASSWD: ALL" > "/etc/sudoers.d/$SERVICE_USER"
+chmod 0440 "/etc/sudoers.d/$SERVICE_USER"
 
 # ---------- systemd 服务 ----------
 log "创建 systemd 服务 $SERVICE_NAME"
@@ -317,5 +282,5 @@ fi
 echo "  首次使用:   打开 /register 页面创建第一个管理员账户"
 echo "  服务管理:   systemctl status|restart|stop $SERVICE_NAME"
 echo "  日志查看:   journalctl -u $SERVICE_NAME -f"
-echo "  如需 HTTPS: 建议用 Caddy 反代上游 $BIND"
+echo "  如需 HTTPS: 建议用 Caddy 反代上游"
 echo

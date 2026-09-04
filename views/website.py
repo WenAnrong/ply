@@ -154,6 +154,15 @@ def _build_temp_snippet(items, domain):
     return "\n".join(lines) + "\n"
 
 
+def _atomic_write(path, content):
+    """原子写文件：先写临时文件再 os.replace，避免并发/崩溃时读到半截内容。"""
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(content)
+    os.replace(tmp, path)
+
+
 def _write_temp_snippet():
     """从数据库读取活动未过期的临时站点，重写面板自有片段文件。
 
@@ -175,21 +184,10 @@ def _write_temp_snippet():
         .order_by(TemporarySite.created_at)
         .all()
     )
-
-    content = _build_temp_snippet(items, domain)
-
-    lock = path + ".lock"
-    tmp = path + ".tmp"
-    # 单条 sudo 命令：加锁 -> 写临时文件 -> 原子 mv -> sync
-    cmd = 'flock "{}" -c \'tee "{}" >/dev/null && mv "{}" "{}" && sync\''.format(
-        lock, tmp, tmp, path
-    )
-    r = _sudo(["sh", "-c", cmd], stdin=content)
-    if r.returncode != 0:
-        raise RuntimeError("写入片段失败：" + (r.stderr or "权限不足"))
+    _atomic_write(path, _build_temp_snippet(items, domain))
 
 
-def _ensure_temp_snippet():
+def ensure_temp_snippet():
     """确保面板自有临时站点片段文件存在；不存在则创建，避免 Caddy import 报错。"""
     path = current_app.config["TEMP_SITE_SNIPPET_PATH"]
     if os.path.exists(path):
@@ -199,17 +197,10 @@ def _ensure_temp_snippet():
         _write_temp_snippet()
     except Exception:
         # 无法生成（如未配置泛域名），写一个最小头注释文件，保证 import 不报错
-        content = "# ply 临时站点片段（由面板自动生成，请勿手改）\n"
-        lock = path + ".lock"
-        tmp = path + ".tmp"
-        cmd = 'flock "{}" -c \'tee "{}" >/dev/null && mv "{}" "{}" && sync\''.format(
-            lock, tmp, tmp, path
-        )
-        r = _sudo(["sh", "-c", cmd], stdin=content)
-        if r.returncode != 0:
-            current_app.logger.warning(
-                "创建临时站点片段失败：%s", r.stderr or "权限不足"
-            )
+        try:
+            _atomic_write(path, "# ply 临时站点片段（由面板自动生成，请勿手改）\n")
+        except Exception as e:
+            current_app.logger.warning("创建临时站点片段失败：%s", e)
 
 
 def _reload_caddy():
@@ -254,7 +245,7 @@ def _apply_expired_retention():
 @website_bp.route("/website")
 @login_required
 def index():
-    _ensure_temp_snippet()
+    ensure_temp_snippet()
     caddy_ok = _caddy_installed()
     temp_sites = TemporarySite.query.order_by(TemporarySite.created_at.desc()).all()
     snippet_path = current_app.config["TEMP_SITE_SNIPPET_PATH"]
@@ -366,7 +357,7 @@ def close_temp_site(code):
 @website_bp.route("/website/settings")
 @login_required
 def settings():
-    _ensure_temp_snippet()
+    ensure_temp_snippet()
     caddy_ok = _caddy_installed()
     content, exists, err = _read_caddyfile()
     return render_template(
@@ -384,6 +375,9 @@ def settings():
 @login_required
 def save_caddy_config():
     content = request.form.get("content", "")
+
+    # 先确保临时站点片段文件存在，避免刚写入的 Caddyfile import 它时因缺失而启动失败
+    ensure_temp_snippet()
 
     # 备份原文件（文件不存在时跳过）
     _sudo(["cp", CADDYFILE_PATH, CADDYFILE_PATH + ".bak"])

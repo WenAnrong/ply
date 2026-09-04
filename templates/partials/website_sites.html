@@ -113,16 +113,16 @@
 			<strong>不会改动</strong>你的主 Caddyfile。请在你的 Caddyfile 里为泛域名创建 site 块（<code>{{ wildcard_domain }}</code>），并在块内 <code>import</code> 该片段：
 		</p>
 
-		<p class="page-subtitle"><strong>HTTPS（默认）：</strong>Caddy 会自动申请并续期证书。</p>
+		<p class="page-subtitle"><strong>HTTPS：（caddy默认无法申请泛域名证书，请自行配置）</strong></p>
 		<pre class="code-editor">{{ temp_snippet_example }}</pre>
 
-		<p class="page-subtitle"><strong>HTTP（不想要 HTTPS）：</strong>在站点地址前加 <code>http://</code>，Caddy 只监听 80 端口、不会申请证书。</p>
+		<p class="page-subtitle"><strong>HTTP(推荐)：</strong>在站点地址前加 <code>http://</code>，Caddy 只监听 80 端口、不会申请证书。</p>
 		<pre class="code-editor">{{ temp_snippet_example_http }}</pre>
 
 		<p class="page-subtitle">
-			说明：<code>import</code> 引入面板生成的临时站点路由（每个站点一个 <code>@&lt;code&gt; host</code> 匹配器，把 <code>&lt;code&gt;.{{ temp_site_domain if temp_site_domain else '你的域名' }}</code> 转发到对应端口）；
+			说明：<code>import</code> 引入面板生成的临时站点路由。
 			<code>respond "" 204</code> 让未匹配的子域名返回空响应。<br/>
-			使用泛域名前，请确保 DNS 中已添加 <code>{{ wildcard_domain }}</code> 指向本机；若用 HTTPS，请为 Caddy 配置通配符证书（需要 DNS-01 验证），Caddy默认无法为你申请证书	；HTTP 则无需证书。<br/>
+			使用泛域名前，请确保 DNS 中已添加 <code>{{ wildcard_domain }}</code> 指向本机；若用 HTTPS，请为 Caddy 配置通配符证书，Caddy默认无法为你申请证书	；HTTP 则无需证书。<br/>
 			如果用面板修改，修改完成后点击保存即可。如果手动修改了 Caddyfile，请在修改后执行 <code>caddy reload</code> 让 Caddy 重新加载配置。
 		</p>
 	</div>

@@ -201,11 +201,29 @@ ol {
 }
 
 .nav-ico {
-    width: 20px;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.06);
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.nav-ico svg {
+    display: block;
+    width: 20px;
+    height: 20px;
+}
+
+.nav-link:hover .nav-ico {
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.nav-link.active .nav-ico {
+    background: rgba(255, 255, 255, 0.22);
 }
 
 /* ---------- 顶栏 ---------- */
@@ -616,6 +634,181 @@ ol {
 .page-subtitle {
     margin: 0 0 20px;
     color: var(--text-muted);
+}
+
+/* ---------- 关于页 ---------- */
+.about-hero {
+    position: relative;
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 36px 24px;
+    margin-bottom: 28px;
+    box-shadow: var(--shadow);
+    text-align: center;
+}
+
+.about-hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(600px 200px at 50% -20%,
+            var(--primary-soft), transparent 70%);
+    pointer-events: none;
+}
+
+.about-hero-logo {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 16px;
+    display: block;
+    border-radius: 14px;
+}
+
+.about-hero-title {
+    position: relative;
+    margin: 0 0 6px;
+    font-size: 1.6rem;
+}
+
+.about-hero-subtitle {
+    position: relative;
+    margin: 0 0 16px;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.about-hero-meta {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.about-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.about-pill--primary {
+    background: var(--primary-soft);
+    border-color: transparent;
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.about-section {
+    margin-bottom: 28px;
+}
+
+.about-section-title {
+    font-size: 1.05rem;
+    margin: 0 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.about-section-title::before {
+    content: "";
+    width: 4px;
+    height: 1em;
+    border-radius: 2px;
+    background: var(--primary);
+}
+
+.about-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+.about-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: var(--shadow);
+}
+
+.about-item-icon {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    background: var(--primary-soft);
+    border-radius: 10px;
+}
+
+.about-item-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 2px;
+}
+
+.about-item-desc {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+/* 开源地址卡片 */
+.about-github {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.about-github-info {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+}
+
+.about-github-icon {
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    background: var(--sidebar-bg);
+    color: #fff;
+}
+
+.about-github-name {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 2px;
+}
+
+.about-github-desc {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.about-github-btn {
+    flex-shrink: 0;
 }
 
 /* 错误页 */

@@ -252,14 +252,14 @@ def index():
     temp_site_domain = _detect_wildcard_domain()
     temp_site_scheme = _detect_wildcard_scheme()
     example_domain = temp_site_domain or "你的域名"
-    # HTTPS（默认，Caddy 自动申请证书）
+    # HTTPS
     temp_snippet_example = (
         "*." + example_domain + " {\n"
         "    import " + snippet_path + "\n"
         '    respond "" 204\n'
         "}"
     )
-    # HTTP（不想要 HTTPS：站点地址前加 http://，只监听 80 端口）
+    # HTTP
     temp_snippet_example_http = (
         "http://*." + example_domain + " {\n"
         "    import " + snippet_path + "\n"

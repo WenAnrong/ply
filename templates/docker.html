@@ -51,6 +51,24 @@
 	</nav>
 
 	<div id="docker-content">
+		{% if docker_installed is defined and not docker_installed %}
+		<div class="panel">
+			<div class="panel-header">Docker 未安装</div>
+			<div class="panel-body">
+				<p class="page-subtitle">当前服务器未安装 Docker，Docker 管理功能不可用。面板其他功能不受影响。</p>
+				<p class="page-subtitle">请参考项目 <code>README.md</code> 的「Docker 安装」章节安装 Docker 与 Docker Compose v2 插件：</p>
+				<pre><code>curl -fsSL https://get.docker.com | sudo bash</code></pre>
+			</div>
+		</div>
+		{% elif docker_compose_installed is defined and not docker_compose_installed %}
+		<div class="panel">
+			<div class="panel-header">Docker Compose v2 未安装</div>
+			<div class="panel-body">
+				<p class="page-subtitle">已检测到 Docker，但缺少 Compose v2 插件（docker compose），Compose 项目管理不可用。请参考项目 <code>README.md</code> 的「Docker 安装」章节安装。</p>
+			</div>
+		</div>
+		{% endif %}
+
 		{% if active_tab == 'services' %}
 			{% include "partials/docker_services.html" %}
 		{% elif active_tab == 'images' %}

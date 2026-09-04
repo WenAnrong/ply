@@ -1,7 +1,7 @@
 <div class="panel">
 	<div class="panel-header">已安装镜像</div>
 	<div class="panel-body">
-		{% if docker_images_error %}
+		{% if docker_images_error and docker_installed is defined and docker_installed %}
 			<div class="alert alert-error">{{ docker_images_error }}</div>
 		{% endif %}
 

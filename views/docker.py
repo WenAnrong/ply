@@ -50,6 +50,42 @@ def _sudo(args, stdin=None, cwd=None):
     )
 
 
+# Docker 未安装时给出的友好提示，引导用户查阅 README
+_DOCKER_NOT_INSTALLED_MSG = (
+    "Docker 未安装。请先安装 Docker 与 Docker Compose v2 插件"
+    "（docker compose），具体步骤见项目 README.md 的「Docker 安装」章节。"
+)
+_DOCKER_COMPOSE_MISSING_MSG = (
+    "已检测到 Docker，但缺少 Docker Compose v2 插件（docker compose）。"
+    "请参考项目 README.md 的「Docker 安装」章节安装 Compose v2 插件。"
+)
+
+
+def _docker_install_state():
+    """检测 Docker 与 Docker Compose 是否安装。
+
+    返回 (docker_ok, compose_ok, message)。
+    任一缺失时 message 为友好的引导提示，否则为 None。
+    """
+    docker_check = _sudo(["docker", "--version"])
+    if docker_check.returncode != 0:
+        return False, False, _DOCKER_NOT_INSTALLED_MSG
+    compose_check = _sudo(["docker", "compose", "version"])
+    if compose_check.returncode != 0:
+        return True, False, _DOCKER_COMPOSE_MISSING_MSG
+    return True, True, None
+
+
+def _friendly_docker_error(stderr):
+    """把 docker 命令的 stderr 转成用户友好的提示。"""
+    err = (stderr or "").strip()
+    if not err:
+        return "无法读取 Docker 信息（请确认 Docker 是否可用）"
+    if "command not found" in err or "No such file or directory" in err:
+        return _DOCKER_NOT_INSTALLED_MSG
+    return err
+
+
 def _list_images():
     """列出本地 Docker 镜像，返回 (列表, 错误信息)。"""
     r = _sudo(
@@ -61,7 +97,7 @@ def _list_images():
         ]
     )
     if r.returncode != 0:
-        return [], r.stderr.strip() or "无法读取 Docker 镜像（请确认 Docker 是否可用）"
+        return [], _friendly_docker_error(r.stderr)
     images = []
     for line in r.stdout.splitlines():
         parts = line.split("\t")
@@ -89,7 +125,7 @@ def _list_containers():
         return (
             [],
             [],
-            r.stderr.strip() or "无法读取 Docker 容器（请确认 Docker 是否可用）",
+            _friendly_docker_error(r.stderr),
         )
 
     rows = []
@@ -194,13 +230,18 @@ def index():
 @docker_bp.route("/docker/services")
 @login_required
 def services():
+    docker_ok, compose_ok, install_msg = _docker_install_state()
     projects, normal, err = _list_containers()
+    if install_msg:
+        err = install_msg
     return render_template(
         "docker.html",
         active_tab="services",
         compose_projects=projects,
         normal_containers=normal,
         docker_services_error=err,
+        docker_installed=docker_ok,
+        docker_compose_installed=compose_ok,
     )
 
 
@@ -213,7 +254,7 @@ def container_start():
         return redirect(url_for("docker.services"))
     r = _sudo(["docker", "start", ref])
     if r.returncode != 0:
-        flash("启动失败：" + (r.stderr.strip() or "未知错误"), "error")
+        flash("启动失败：" + _friendly_docker_error(r.stderr), "error")
     else:
         flash(f"容器 {ref} 已启动", "success")
     return redirect(url_for("docker.services"))
@@ -228,7 +269,7 @@ def container_stop():
         return redirect(url_for("docker.services"))
     r = _sudo(["docker", "stop", ref])
     if r.returncode != 0:
-        flash("停止失败：" + (r.stderr.strip() or "未知错误"), "error")
+        flash("停止失败：" + _friendly_docker_error(r.stderr), "error")
     else:
         flash(f"容器 {ref} 已停止", "success")
     return redirect(url_for("docker.services"))
@@ -245,7 +286,7 @@ def compose_up():
     args, cwd = _compose_args(project, "up")
     r = _sudo(args, cwd=cwd)
     if r.returncode != 0:
-        flash("启动失败：" + (r.stderr.strip() or "未知错误"), "error")
+        flash("启动失败：" + _friendly_docker_error(r.stderr), "error")
     else:
         flash(f"项目 {name} 已启动", "success")
     return redirect(url_for("docker.services"))
@@ -262,7 +303,7 @@ def compose_down():
     args, cwd = _compose_args(project, "down")
     r = _sudo(args, cwd=cwd)
     if r.returncode != 0:
-        flash("停止失败：" + (r.stderr.strip() or "未知错误"), "error")
+        flash("停止失败：" + _friendly_docker_error(r.stderr), "error")
     else:
         flash(f"项目 {name} 已停止", "success")
     return redirect(url_for("docker.services"))
@@ -279,7 +320,7 @@ def compose_stop():
     args, cwd = _compose_args(project, "stop")
     r = _sudo(args, cwd=cwd)
     if r.returncode != 0:
-        flash("停止失败：" + (r.stderr.strip() or "未知错误"), "error")
+        flash("停止失败：" + _friendly_docker_error(r.stderr), "error")
     else:
         flash(f"项目 {name} 已停止", "success")
     return redirect(url_for("docker.services"))
@@ -294,7 +335,7 @@ def container_delete():
         return redirect(url_for("docker.services"))
     r = _sudo(["docker", "rm", ref])
     if r.returncode != 0:
-        flash("删除失败：" + (r.stderr.strip() or "容器可能正在运行"), "error")
+        flash("删除失败：" + _friendly_docker_error(r.stderr), "error")
     else:
         flash(f"容器 {ref} 已删除", "success")
     return redirect(url_for("docker.services"))
@@ -303,18 +344,24 @@ def container_delete():
 @docker_bp.route("/docker/images")
 @login_required
 def images():
+    docker_ok, compose_ok, install_msg = _docker_install_state()
     image_list, err = _list_images()
+    if install_msg:
+        err = install_msg
     return render_template(
         "docker.html",
         active_tab="images",
         docker_images=image_list,
         docker_images_error=err,
+        docker_installed=docker_ok,
+        docker_compose_installed=compose_ok,
     )
 
 
 @docker_bp.route("/docker/settings")
 @login_required
 def settings():
+    docker_ok, compose_ok, _ = _docker_install_state()
     content, exists, err = _read_daemon_json()
     return render_template(
         "docker.html",
@@ -323,6 +370,8 @@ def settings():
         docker_config_exists=exists,
         docker_config_error=err,
         docker_config_path=DOCKER_DAEMON_JSON,
+        docker_installed=docker_ok,
+        docker_compose_installed=compose_ok,
     )
 
 
@@ -377,7 +426,7 @@ def delete_docker_image():
 
     r = _sudo(["docker", "rmi", ref])
     if r.returncode != 0:
-        flash("删除失败：" + (r.stderr.strip() or "镜像可能正被容器使用"), "error")
+        flash("删除失败：" + _friendly_docker_error(r.stderr), "error")
     else:
         flash(f"镜像 {ref} 已删除", "success")
     return redirect(url_for("docker.images"))

@@ -37,6 +37,17 @@
 	</nav>
 
 	<div id="website-content">
+		{% if caddy_installed is defined and not caddy_installed %}
+		<div class="panel">
+			<div class="panel-header">Caddy 未安装</div>
+			<div class="panel-body">
+				<p class="page-subtitle">当前服务器未安装 Caddy，网站管理功能不可用。面板其他功能不受影响。</p>
+				<p class="page-subtitle">请参考项目 <code>README.md</code> 的「Caddy 安装」章节安装 Caddy：</p>
+				<p class="page-subtitle">官方文档：<code>https://caddyserver.com.cn/docs/install</code></p>
+			</div>
+		</div>
+		{% endif %}
+
 		{% if active_tab == 'sites' %}
 			{% include "partials/website_sites.html" %}
 		{% elif active_tab == 'settings' %}

@@ -37,6 +37,27 @@ def _sudo(args, stdin=None, cwd=None):
     )
 
 
+# Caddy 未安装时给出的友好提示，引导用户查阅 README
+_CADDY_NOT_INSTALLED_MSG = (
+    "Caddy 未安装。请先安装 Caddy，具体步骤见项目 README.md 的「Caddy 安装」章节。"
+)
+
+
+def _caddy_installed():
+    """检测 Caddy 是否安装。"""
+    return _sudo(["caddy", "version"]).returncode == 0
+
+
+def _friendly_caddy_error(stderr):
+    """把 Caddy 命令的 stderr 转成用户友好的提示。"""
+    err = (stderr or "").strip()
+    if not err:
+        return "无法读取 Caddy 信息（请确认 Caddy 是否可用）"
+    if "command not found" in err or "No such file or directory" in err:
+        return _CADDY_NOT_INSTALLED_MSG
+    return err
+
+
 def _read_caddyfile():
     """读取 Caddyfile，返回 (展示文本, 文件是否存在, 错误信息)。"""
     if not os.path.exists(CADDYFILE_PATH):
@@ -161,7 +182,7 @@ def _reload_caddy():
     r = _sudo(["caddy", "reload", "--config", CADDYFILE_PATH])
     if r.returncode == 0:
         return True, None
-    return False, r.stderr.strip() or "caddy reload 失败"
+    return False, _friendly_caddy_error(r.stderr)
 
 
 def _sync_temp_sites():
@@ -198,6 +219,7 @@ def _apply_expired_retention():
 @website_bp.route("/website")
 @login_required
 def index():
+    caddy_ok = _caddy_installed()
     temp_sites = TemporarySite.query.order_by(TemporarySite.created_at.desc()).all()
     snippet_path = current_app.config["TEMP_SITE_SNIPPET_PATH"]
     temp_site_domain = _detect_wildcard_domain()
@@ -225,12 +247,19 @@ def index():
         temp_snippet_example=temp_snippet_example,
         temp_snippet_example_http=temp_snippet_example_http,
         temp_site_domain=temp_site_domain,
+        caddy_installed=caddy_ok,
     )
 
 
 @website_bp.route("/website/sites/create", methods=["POST"])
 @login_required
 def create_temp_site():
+    if not _caddy_installed():
+        flash(
+            "Caddy 未安装，无法创建临时站点。请参考项目 README.md 的「Caddy 安装」章节安装。",
+            "error",
+        )
+        return redirect(url_for("website.index"))
     port_raw = request.form.get("port", "").strip()
     ttl_raw = request.form.get("ttl_hours", "").strip()
 
@@ -299,6 +328,7 @@ def close_temp_site(code):
 @website_bp.route("/website/settings")
 @login_required
 def settings():
+    caddy_ok = _caddy_installed()
     content, exists, err = _read_caddyfile()
     return render_template(
         "website.html",
@@ -307,6 +337,7 @@ def settings():
         caddy_config_exists=exists,
         caddy_config_error=err,
         caddy_config_path=CADDYFILE_PATH,
+        caddy_installed=caddy_ok,
     )
 
 

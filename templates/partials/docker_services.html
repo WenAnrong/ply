@@ -1,4 +1,4 @@
-{% if docker_services_error %}
+{% if docker_services_error and docker_installed is defined and docker_installed %}
 	<div class="alert alert-error">{{ docker_services_error }}</div>
 {% endif %}
 

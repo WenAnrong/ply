@@ -6,6 +6,7 @@ import json
 import os
 import re
 import subprocess
+import threading
 import time
 
 from flask import Blueprint
@@ -20,6 +21,43 @@ docker_bp = Blueprint("docker", __name__)
 
 # Docker 守护进程配置文件
 DOCKER_DAEMON_JSON = "/etc/docker/daemon.json"
+
+# ---- Docker 安装状态 / 容器列表 / 镜像列表 短 TTL 缓存 ----
+# 这些页面每次刷新都会跑 sudo docker ps / inspect / compose 探测等子进程，
+# 用 3 秒缓存避免短时间内重复刷新时白跑；变更操作后调用 _docker_cache_invalidate() 失效。
+_DOCKER_CACHE_TTL = 3.0  # 秒
+_DOCKER_CACHE_LOCK = threading.Lock()
+_DOCKER_STATE_CACHE = {"ts": 0.0, "value": None}
+_DOCKER_CONTAINERS_CACHE = {"ts": 0.0, "value": None}
+_DOCKER_IMAGES_CACHE = {"ts": 0.0, "value": None}
+
+
+def _cache_get(cache):
+    """命中且未过期的缓存返回其值，否则返回 None。"""
+    now = time.time()
+    with _DOCKER_CACHE_LOCK:
+        if cache["value"] is not None and now - cache["ts"] < _DOCKER_CACHE_TTL:
+            return cache["value"]
+    return None
+
+
+def _cache_set(cache, value):
+    """写入缓存并刷新时间戳。"""
+    with _DOCKER_CACHE_LOCK:
+        cache["value"] = value
+        cache["ts"] = time.time()
+
+
+def _docker_cache_invalidate():
+    """清空全部缓存：容器/镜像/daemon 状态发生变更后调用，确保下个页面取到最新。"""
+    with _DOCKER_CACHE_LOCK:
+        for cache in (
+            _DOCKER_STATE_CACHE,
+            _DOCKER_CONTAINERS_CACHE,
+            _DOCKER_IMAGES_CACHE,
+        ):
+            cache["value"] = None
+            cache["ts"] = 0.0
 
 
 def _read_daemon_json():
@@ -198,6 +236,36 @@ def _list_containers():
     return list(projects.values()), normal, None
 
 
+def _cached_install_state():
+    """_docker_install_state() 的 TTL 缓存版本（仅供读取展示）。"""
+    cached = _cache_get(_DOCKER_STATE_CACHE)
+    if cached is not None:
+        return cached
+    result = _docker_install_state()
+    _cache_set(_DOCKER_STATE_CACHE, result)
+    return result
+
+
+def _cached_list_containers():
+    """_list_containers() 的 TTL 缓存版本（仅供读取展示）。"""
+    cached = _cache_get(_DOCKER_CONTAINERS_CACHE)
+    if cached is not None:
+        return cached
+    result = _list_containers()
+    _cache_set(_DOCKER_CONTAINERS_CACHE, result)
+    return result
+
+
+def _cached_list_images():
+    """_list_images() 的 TTL 缓存版本（仅供读取展示）。"""
+    cached = _cache_get(_DOCKER_IMAGES_CACHE)
+    if cached is not None:
+        return cached
+    result = _list_images()
+    _cache_set(_DOCKER_IMAGES_CACHE, result)
+    return result
+
+
 def _compose_args(project, action):
     """构造针对某个 compose 项目的 docker compose 命令参数。
 
@@ -236,11 +304,11 @@ def index():
 @docker_bp.route("/docker/services")
 @login_required
 def services():
-    docker_ok, compose_ok, install_msg = _docker_install_state()
+    docker_ok, compose_ok, install_msg = _cached_install_state()
     # Docker 未安装时跳过列表（docker ps/inspect 会白跑 sudo 子进程）
     projects, normal, err = [], [], None
     if docker_ok:
-        projects, normal, err = _list_containers()
+        projects, normal, err = _cached_list_containers()
     if install_msg:
         err = install_msg
     return render_template(
@@ -266,6 +334,7 @@ def container_start():
         flash("启动失败：" + _friendly_docker_error(r.stderr), "error")
     else:
         flash(f"容器 {ref} 已启动", "success")
+    _docker_cache_invalidate()
     return redirect(url_for("docker.services"))
 
 
@@ -281,6 +350,7 @@ def container_stop():
         flash("停止失败：" + _friendly_docker_error(r.stderr), "error")
     else:
         flash(f"容器 {ref} 已停止", "success")
+    _docker_cache_invalidate()
     return redirect(url_for("docker.services"))
 
 
@@ -298,6 +368,7 @@ def compose_up():
         flash("启动失败：" + _friendly_docker_error(r.stderr), "error")
     else:
         flash(f"项目 {name} 已启动", "success")
+    _docker_cache_invalidate()
     return redirect(url_for("docker.services"))
 
 
@@ -315,6 +386,7 @@ def compose_down():
         flash("停止失败：" + _friendly_docker_error(r.stderr), "error")
     else:
         flash(f"项目 {name} 已停止", "success")
+    _docker_cache_invalidate()
     return redirect(url_for("docker.services"))
 
 
@@ -332,6 +404,7 @@ def compose_stop():
         flash("停止失败：" + _friendly_docker_error(r.stderr), "error")
     else:
         flash(f"项目 {name} 已停止", "success")
+    _docker_cache_invalidate()
     return redirect(url_for("docker.services"))
 
 
@@ -347,17 +420,18 @@ def container_delete():
         flash("删除失败：" + _friendly_docker_error(r.stderr), "error")
     else:
         flash(f"容器 {ref} 已删除", "success")
+    _docker_cache_invalidate()
     return redirect(url_for("docker.services"))
 
 
 @docker_bp.route("/docker/images")
 @login_required
 def images():
-    docker_ok, compose_ok, install_msg = _docker_install_state()
+    docker_ok, compose_ok, install_msg = _cached_install_state()
     # Docker 未安装时跳过镜像列表，避免白跑 sudo 子进程
     image_list, err = [], None
     if docker_ok:
-        image_list, err = _list_images()
+        image_list, err = _cached_list_images()
     if install_msg:
         err = install_msg
     return render_template(
@@ -373,7 +447,7 @@ def images():
 @docker_bp.route("/docker/settings")
 @login_required
 def settings():
-    docker_ok, compose_ok, _ = _docker_install_state()
+    docker_ok, compose_ok, _ = _cached_install_state()
     content, exists, err = _read_daemon_json()
     return render_template(
         "docker.html",
@@ -427,6 +501,8 @@ def save_docker_config():
     else:
         flash("Docker 配置已更新并重启", "success")
 
+    # daemon 可能已重启，容器/镜像状态已变，清掉缓存
+    _docker_cache_invalidate()
     return redirect(url_for("docker.settings"))
 
 
@@ -444,4 +520,5 @@ def delete_docker_image():
         flash("删除失败：" + _friendly_docker_error(r.stderr), "error")
     else:
         flash(f"镜像 {ref} 已删除", "success")
+    _docker_cache_invalidate()
     return redirect(url_for("docker.images"))

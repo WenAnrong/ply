@@ -119,19 +119,30 @@ def _find_wildcard_site_addr():
     return ""
 
 
+def _wildcard_info():
+    """解析一次主 Caddyfile，返回 (基准域名, 协议 scheme)。
+
+    未识别到泛域名时域名返回空字符串；协议未显式写时默认 https。
+    内部只调用一次 _find_wildcard_site_addr()，供需要同时取域名与协议的调用方复用。
+    """
+    addr = (_find_wildcard_site_addr() or "").strip()
+    if addr.startswith("http://"):
+        scheme = "http"
+    elif addr.startswith("https://"):
+        scheme = "https"
+    else:
+        scheme = "https"
+    return _strip_host(addr), scheme
+
+
 def _detect_wildcard_domain():
     """从主 Caddyfile 中自动识别泛域名基准域名。未找到时返回空字符串。"""
-    return _strip_host(_find_wildcard_site_addr())
+    return _wildcard_info()[0]
 
 
 def _detect_wildcard_scheme():
     """检测泛域名 site 块使用的协议（http/https）。未配置协议时默认 https。"""
-    addr = (_find_wildcard_site_addr() or "").strip()
-    if addr.startswith("http://"):
-        return "http"
-    if addr.startswith("https://"):
-        return "https"
-    return "https"
+    return _wildcard_info()[1]
 
 
 def _build_temp_snippet(items, domain):
@@ -249,8 +260,8 @@ def index():
     caddy_ok = _caddy_installed()
     temp_sites = TemporarySite.query.order_by(TemporarySite.created_at.desc()).all()
     snippet_path = current_app.config["TEMP_SITE_SNIPPET_PATH"]
-    temp_site_domain = _detect_wildcard_domain()
-    temp_site_scheme = _detect_wildcard_scheme()
+    # 只解析一次 Caddyfile，同时拿到泛域名与协议
+    temp_site_domain, temp_site_scheme = _wildcard_info()
     example_domain = temp_site_domain or "你的域名"
     # HTTPS
     temp_snippet_example = (

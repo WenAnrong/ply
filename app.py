@@ -2,6 +2,7 @@
 主要控制模块
 """
 
+import logging
 import os
 from datetime import datetime
 
@@ -28,11 +29,23 @@ from views.settings import setting_bp
 from views.website import ensure_temp_snippet
 from views.website import website_bp
 
+# 运行环境标识（development / production，默认 development）
+_ENV = os.environ.get("FLASK_CONFIG", "development")
+
+# 用标准 logging 记录运行信息：开发环境 INFO 以上、生产 INFO 以上，
+# 输出带时间/级别，gunicorn worker 的日志经 stderr 进入 journald 便于分级查看。
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
+
 app = Flask(__name__)
 
 # 根据环境变量 FLASK_CONFIG 加载配置（默认开发环境）
-app.config.from_object(CONFIG_MAP[os.environ.get("FLASK_CONFIG", "default")])
-print(f"当前配置: {os.environ.get('FLASK_CONFIG', 'development')}")
+app.config.from_object(CONFIG_MAP[_ENV])
+# 确保 app.logger 的 INFO 级别日志能输出（默认可能被 root 的 WARNING 吞掉）
+app.logger.setLevel(logging.INFO)
+app.logger.info("当前配置: %s", _ENV)
 
 # SQLite 要求父目录已存在，这里自动创建
 _db_path = app.config["SQLALCHEMY_DATABASE_URI"].replace("sqlite:///", "")

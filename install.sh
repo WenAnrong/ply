@@ -114,6 +114,7 @@ def _p(v):
     return v if pmin <= v <= pmax else None
 
 # 保证 [secret] 段存在（与应用 config.py 首次生成行为一致）
+# 键名约定：config.ini 一律用小写键（secret_key / port），config.py 读取时 key.upper() 转大写。
 if not parser.has_section("secret"):
     parser.add_section("secret")
     parser.set("secret", "secret_key", secrets.token_hex(32))

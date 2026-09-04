@@ -15,17 +15,22 @@ def load_and_ensure_config_ini(flask_config, ini_path):
     """
     确保 config.ini 存在（首次启动自动生成随机的 SECRET_KEY），
     读取其中的键值并覆盖到 Flask 配置。
+
+    键名约定：config.ini 内一律使用小写键（configparser 默认会把 option
+    小写化后落盘，install.sh 也是按小写写）；读取时统一 key.upper() 转成
+    大写后写入 Flask 配置。请在 ini 中保持小写键、代码里按大写引用，
+    避免大小写混用造成误解。
     """
     os.makedirs(os.path.dirname(ini_path) or ".", exist_ok=True)
 
-    # 首次启动：自动生成默认 config.ini
+    # 首次启动：自动生成默认 config.ini（与 install.sh 一致，用小写键 secret_key）
     if not os.path.exists(ini_path):
         parser = configparser.ConfigParser()
-        parser["secret"] = {"SECRET_KEY": secrets.token_hex(32)}
+        parser["secret"] = {"secret_key": secrets.token_hex(32)}
         with open(ini_path, "w", encoding="utf-8") as f:
             parser.write(f)
 
-    # 读取 config.ini 并覆盖默认配置
+    # 读取 config.ini 并覆盖默认配置（小写键 -> 大写 Flask 配置键）
     ini = configparser.ConfigParser()
     ini.read(ini_path, encoding="utf-8")
     for section in ini.sections():

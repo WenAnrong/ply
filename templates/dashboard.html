@@ -54,7 +54,14 @@
 				</tr>
 				<tr>
 					<th>外网地址</th>
-					<td>{{public_ip}}</td>
+					<td>
+						<span
+							id="public-ip"
+							hx-get="{{ url_for('dashboard.public_ip') }}"
+							hx-trigger="load"
+							hx-swap="innerHTML"
+						>获取中…</span>
+					</td>
 				</tr>
 				<tr>
 					<th>启动时间</th>

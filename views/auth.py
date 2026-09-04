@@ -136,9 +136,9 @@ def login():
                 _LOGIN_ATTEMPTS[ip] = rec
             error = "用户名或密码错误"
         else:
-            # 登录成功，清除该 IP 的失败记录
+            # 登录成功：直接清空失败计数表。
             with _LOGIN_LOCK:
-                _LOGIN_ATTEMPTS.pop(ip, None)
+                _LOGIN_ATTEMPTS.clear()
             login_user(user)
             # 优先跳转到被拦截的页面（?next=），否则回首页。
             # 只信任站内相对路径，防开放重定向。

@@ -1,3 +1,4 @@
+import threading
 import time
 import platform
 import socket
@@ -9,6 +10,11 @@ from flask import render_template
 import psutil
 
 dashboard_bp = Blueprint("dashboard", __name__)
+
+# ---- 公网出口 IP 缓存：避免每次刷新页面都同步请求外部服务 ----
+_PUBLIC_IP_TTL = 300  # 缓存 5 分钟
+_PUBLIC_IP_LOCK = threading.Lock()
+_PUBLIC_IP_CACHE = {"value": None, "ts": 0.0}
 
 
 def format_uptime(seconds):
@@ -26,6 +32,24 @@ def _get_public_ip():
             return resp.read().decode().strip()
     except Exception:
         return None
+
+
+def _get_public_ip_cached():
+    """带 TTL 缓存地获取公网出口 IP；失败返回 None。
+
+    外部请求只在首次/过期后发生，后续页面加载直接命中缓存，
+    避免每次都阻塞最多 5 秒等待 ifconfig.me。
+    """
+    now = time.time()
+    with _PUBLIC_IP_LOCK:
+        cached = _PUBLIC_IP_CACHE["value"]
+        if cached is not None and now - _PUBLIC_IP_CACHE["ts"] < _PUBLIC_IP_TTL:
+            return cached
+    ip = _get_public_ip()
+    with _PUBLIC_IP_LOCK:
+        _PUBLIC_IP_CACHE["value"] = ip
+        _PUBLIC_IP_CACHE["ts"] = time.time()
+    return ip
 
 
 def _fmt_gb(value):
@@ -185,8 +209,8 @@ def get_system_info():
     except Exception:
         os_release = platform.platform()
 
-    # 公网出口 IP
-    public_ip = _get_public_ip()
+    # 注：公网出口 IP 需要访问外部服务 ifconfig.me，为避免阻塞首屏渲染，
+    # 不在本函数里同步获取，改由 /public_ip 端点 + htmx load 异步填充。
 
     return {
         "hostname": socket.gethostname(),
@@ -194,7 +218,6 @@ def get_system_info():
         "kernel": platform.release(),
         "machine": platform.machine(),
         "host_ip": host_ip,
-        "public_ip": public_ip or "—",
         "boot_time": boot_dt.strftime("%Y-%m-%d %H:%M:%S"),
         "uptime": format_uptime(time.time() - boot_time),
     }
@@ -209,3 +232,12 @@ def index():
 def stats():
     """只返回实时数据片段，供 htmx 定时轮询"""
     return render_template("partials/stats_values.html", **get_live_stats())
+
+
+@dashboard_bp.route("/public_ip")
+def public_ip():
+    """返回公网出口 IP（纯文本），由 htmx 在首屏后异步请求填充，不阻塞页面渲染。
+
+    受全局 before_request 保护，需登录后访问；命中缓存时几乎零延迟。
+    """
+    return _get_public_ip_cached() or "—"

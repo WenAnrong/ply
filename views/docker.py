@@ -23,12 +23,18 @@ DOCKER_DAEMON_JSON = "/etc/docker/daemon.json"
 
 
 def _read_daemon_json():
-    """读取 daemon.json，返回 (展示文本, 文件是否存在, 错误信息)。"""
+    """读取 daemon.json，返回 (展示文本, 文件是否存在, 错误信息)。
+
+    文件可能是 root 0600（应用用户不可直接读），统一经 sudo cat 读取。
+    """
     if not os.path.exists(DOCKER_DAEMON_JSON):
         return "{}", False, None
     try:
-        with open(DOCKER_DAEMON_JSON, "r", encoding="utf-8") as f:
-            raw = f.read()
+        # 经 sudo 读取，避免权限不足时误报
+        r = _sudo(["cat", DOCKER_DAEMON_JSON])
+        if r.returncode != 0:
+            return "{}", True, f"读取失败：{r.stderr.strip() or '权限不足'}"
+        raw = r.stdout
         # 解析后重新格式化，方便编辑
         parsed = json.loads(raw)
         return json.dumps(parsed, ensure_ascii=False, indent=2), True, None
@@ -231,7 +237,10 @@ def index():
 @login_required
 def services():
     docker_ok, compose_ok, install_msg = _docker_install_state()
-    projects, normal, err = _list_containers()
+    # Docker 未安装时跳过列表（docker ps/inspect 会白跑 sudo 子进程）
+    projects, normal, err = [], [], None
+    if docker_ok:
+        projects, normal, err = _list_containers()
     if install_msg:
         err = install_msg
     return render_template(
@@ -345,7 +354,10 @@ def container_delete():
 @login_required
 def images():
     docker_ok, compose_ok, install_msg = _docker_install_state()
-    image_list, err = _list_images()
+    # Docker 未安装时跳过镜像列表，避免白跑 sudo 子进程
+    image_list, err = [], None
+    if docker_ok:
+        image_list, err = _list_images()
     if install_msg:
         err = install_msg
     return render_template(
@@ -395,8 +407,11 @@ def save_docker_config():
     _sudo(["sync"])
     time.sleep(0.5)
     try:
-        with open(DOCKER_DAEMON_JSON, "r", encoding="utf-8") as f:
-            written = f.read()
+        # 用 sudo cat 读回校验（文件可能为 0600 root，应用用户直接 open() 会读失败）
+        check = _sudo(["cat", DOCKER_DAEMON_JSON])
+        if check.returncode != 0:
+            raise ValueError(check.stderr.strip() or "无法读取已写入的文件")
+        written = check.stdout
         if not written.strip():
             raise ValueError("写入内容为空")
         json.loads(written)

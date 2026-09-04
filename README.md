@@ -128,7 +128,7 @@ curl -fsSL https://raw.githubusercontent.com/WenAnrong/ply/main/install.sh | sud
 wget -qO- https://raw.githubusercontent.com/WenAnrong/ply/main/install.sh | sudo bash
 ```
 
-默认配置安装完成后通过浏览器访问：`http://<服务器IP>:8000`
+默认配置安装完成后通过浏览器访问：`http://<服务器IP>:<端口>`，端口在 `12000-25000` 之间（首次安装自动随机生成，之后复用 `config.ini` 中已保存的端口）。
 
 ### 安装脚本参数（高级配置）
 
@@ -140,8 +140,10 @@ wget -qO- https://raw.githubusercontent.com/WenAnrong/ply/main/install.sh | sudo
 | `PLY_INSTALL_DIR` | `/opt/ply` | 安装目录 |
 | `PLY_USER` | `ply` | 运行服务用户 |
 | `PLY_SERVICE_NAME` | `ply` | systemd 服务名 |
-| `PLY_PORT` | `8000` | 监听端口 |
-| `PLY_BIND` | `0.0.0.0:<PLY_PORT>` | 完整监听地址 |
+| `PLY_PORT` | 自动（12000-25000） | 监听端口；未配置时优先从 `config.ini` 读取，没有再随机生成 |
+| `PLY_PORT_MIN` | `12000` | 端口范围下限 |
+| `PLY_PORT_MAX` | `25000` | 端口范围上限 |
+| `PLY_BIND` | `0.0.0.0:<PORT>` | 完整监听地址（会校验其中的端口是否在范围内） |
 | `PLY_WORKERS` | `1` | gunicorn worker 数 |
 | `PLY_THREADS` | `50` | gunicorn 线程数 |
 | `PLY_PYTHON` | 自动检测 | 指定 Python 解释器 |
@@ -150,7 +152,11 @@ wget -qO- https://raw.githubusercontent.com/WenAnrong/ply/main/install.sh | sudo
 示例：
 
 ```bash
-sudo PLY_PORT=9000 PLY_BIND=0.0.0.0:9000 bash install.sh
+# 指定端口（需在 12000-25000 之间）
+sudo PLY_PORT=18000 bash install.sh
+
+# 或直接指定完整监听地址
+sudo PLY_BIND=0.0.0.0:18000 bash install.sh
 ```
 
 ## 卸载
@@ -182,7 +188,7 @@ sudo bash uninstall.sh
 生产模式由 systemd 服务单元注入 `FLASK_CONFIG=production` 触发，对应 `config.py` 中的 `ProductionConfig`：
 
 - 数据库：`/var/lib/ply/ply.db`
-- 配置文件：`/etc/ply/config.ini`
+- 配置文件：`/etc/ply/config.ini`（监听端口由安装脚本写入 `[server] port`，首次在 `12000-25000` 随机生成，之后复用）
 - 首次启动自动生成随机 `SECRET_KEY`（由应用自身完成）
 
 **终端权限**：默认服务以 `ply` 用户运行，但安装脚本会为 `ply` 配置免密 sudo，因此 Web 终端内可直接执行 `sudo` 命令（如 `sudo apt update`、`sudo systemctl restart xxx`）。如需关闭，可在安装时设 `PLY_SUDO=0`。
@@ -263,9 +269,13 @@ flask run
 ```ini
 [secret]
 secret_key = <随机生成的密钥>
+
+[server]
+port = <面板监听端口>
 ```
 
-应用首次启动时若 `config.ini` 不存在会自动生成随机 `SECRET_KEY`。
+- 应用首次启动时若 `config.ini` 不存在会自动生成随机 `SECRET_KEY`。
+- `install.sh` 会把面板监听端口写入 `[server] port`（范围 `12000-25000`）；再次安装/更新时若已存在则复用，不覆盖。
 
 ## 常见问题
 

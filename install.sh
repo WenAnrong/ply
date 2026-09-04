@@ -12,8 +12,10 @@
 #   PLY_INSTALL_DIR  安装目录(默认 /opt/ply)
 #   PLY_USER         运行服务用户(默认 ply)
 #   PLY_SERVICE_NAME systemd 服务名(默认 ply)
-#   PLY_PORT         监听端口(默认 8000)
-#   PLY_BIND         完整监听地址(默认 0.0.0.0:<PLY_PORT>)
+#   PLY_PORT         监听端口(需在 12000-25000 之间；未配置时优先从 config.ini 读取，没有再随机生成)
+#   PLY_PORT_MIN     端口范围下限(默认 12000)
+#   PLY_PORT_MAX     端口范围上限(默认 25000)
+#   PLY_BIND         完整监听地址(默认 0.0.0.0:<PORT>)
 #   PLY_WORKERS      gunicorn worker 数(默认 1)
 #   PLY_THREADS      gunicorn 线程数(默认 50)
 #   PLY_PYTHON       指定 Python 解释器
@@ -30,11 +32,11 @@ DATA_DIR="${PLY_DATA_DIR:-/var/lib/ply}"
 CONFIG_DIR="${PLY_CONFIG_DIR:-/etc/ply}"
 WORKERS="${PLY_WORKERS:-1}"
 THREADS="${PLY_THREADS:-50}"
-if [[ -n "${PLY_BIND:-}" ]]; then
-  BIND="$PLY_BIND"
-else
-  BIND="0.0.0.0:${PLY_PORT:-8000}"
-fi
+# 端口范围（12000-25000）
+PORT_MIN="${PLY_PORT_MIN:-12000}"
+PORT_MAX="${PLY_PORT_MAX:-25000}"
+# 面板配置文件（存放端口等；生产环境为 /etc/ply/config.ini）
+CONFIG_FILE="$CONFIG_DIR/config.ini"
 
 log() { echo; echo "==> $*"; }
 err() { echo "[错误] $*" >&2; exit 1; }
@@ -102,6 +104,79 @@ find_python() {
 }
 PYTHON="$(find_python)" || err "未找到 Python >= 3.10。请先安装 Python 3.10+（安装方式见 README.md）"
 log "使用 Python: $("$PYTHON" --version 2>&1)"
+
+# ---------- 端口解析 & 写入配置文件（范围 12000-25000） ----------
+log "解析端口（范围 ${PORT_MIN}-${PORT_MAX}）"
+# 端口优先级：PLY_BIND > PLY_PORT > config.ini 已有值 > 随机生成
+SRC_PORT=""
+if [[ -n "${PLY_BIND:-}" ]]; then
+  SRC_PORT="${PLY_BIND##*:}"
+elif [[ -n "${PLY_PORT:-}" ]]; then
+  SRC_PORT="$PLY_PORT"
+fi
+
+resolve_port() {
+  "$PYTHON" - "$CONFIG_FILE" "$SRC_PORT" "$PORT_MIN" "$PORT_MAX" <<'PYEOF'
+import configparser, os, random, secrets, sys
+path, explicit, pmin, pmax = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
+os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+parser = configparser.ConfigParser()
+exists = os.path.exists(path)
+if exists:
+    try:
+        parser.read(path, encoding="utf-8")
+    except Exception:
+        parser = configparser.ConfigParser()
+        exists = False
+
+def _p(v):
+    try:
+        v = int(v)
+    except (TypeError, ValueError):
+        return None
+    return v if pmin <= v <= pmax else None
+
+# 保证 [secret] 段存在（与应用 config.py 首次生成行为一致）
+if not parser.has_section("secret"):
+    parser.add_section("secret")
+    parser.set("secret", "secret_key", secrets.token_hex(32))
+
+port = None
+need_write = False
+if explicit:
+    port = _p(explicit)
+    if port is None:
+        sys.stderr.write("端口超出范围: %s\n" % explicit)
+        sys.exit(1)
+    need_write = True
+elif parser.has_section("server") and parser.has_option("server", "port"):
+    port = _p(parser.get("server", "port"))
+    if port is None:
+        port = random.randint(pmin, pmax)
+        need_write = True
+else:
+    port = random.randint(pmin, pmax)
+    need_write = True
+
+# 首次创建 config.ini 时，需要把 [secret] 一并写回
+if not exists:
+    need_write = True
+
+# 只在需要时写回（“没有再写”），避免每次安装都覆盖已有端口
+if need_write:
+    if not parser.has_section("server"):
+        parser.add_section("server")
+    parser.set("server", "port", str(port))
+    with open(path, "w", encoding="utf-8") as f:
+        parser.write(f)
+
+print(port)
+PYEOF
+}
+
+PORT="$(resolve_port)" || err "端口无效或超出范围 ${PORT_MIN}-${PORT_MAX}"
+BIND="${PLY_BIND:-0.0.0.0:$PORT}"
+log "使用端口: $PORT（配置文件: $CONFIG_FILE）"
 
 # 校验虚拟环境模块可用（某些发行版需额外安装 python3-venv）
 if ! "$PYTHON" -c 'import venv, ensurepip' >/dev/null 2>&1; then
@@ -232,5 +307,5 @@ fi
 echo "  首次使用:   打开 /register 页面创建第一个管理员账户"
 echo "  服务管理:   systemctl status|restart|stop $SERVICE_NAME"
 echo "  日志查看:   journalctl -u $SERVICE_NAME -f"
-echo "  如需 HTTPS: 建议用 Nginx/Caddy 反代上游 $BIND"
+echo "  如需 HTTPS: 建议用 Caddy 反代上游 $BIND"
 echo

@@ -146,19 +146,111 @@ def get_cpu_detail():
     }
 
 
+def _read_meminfo_kb():
+    """读取 /proc/meminfo，返回字段字典（单位 kB）；失败返回 None。"""
+    info = {}
+    try:
+        with open("/proc/meminfo") as fh:
+            for line in fh:
+                if ":" not in line:
+                    continue
+                key, _, rest = line.partition(":")
+                rest = rest.strip().split()
+                if not rest:
+                    continue
+                try:
+                    info[key.strip()] = int(rest[0])
+                except ValueError:
+                    pass
+    except OSError:
+        return None
+    return info or None
+
+
+def _htop_memory():
+    """按 htop / free 口径计算内存分区，返回各值（字节）。
+
+    htop 源码（LinuxMachine.c）注释即：Compute memory partition like procps(free)
+      used   = MemTotal - MemFree - Buffers - Cached - SReclaimable
+      cache  = Cached + SReclaimable - Shmem   （扣掉 Shmem 单独成段，避免重复计数）
+      shared = Shmem
+    free 段不返回，作为条形留白；四段 + free 恒等于 total。
+    读取失败时退化为 psutil 近似值。
+    """
+    info = _read_meminfo_kb()
+    if info and info.get("MemTotal"):
+        KB = 1024
+        total = info["MemTotal"] * KB
+        free = info.get("MemFree", 0) * KB
+        buffers = info.get("Buffers", 0) * KB
+        cached_raw = info.get("Cached", 0) * KB
+        sreclaimable = info.get("SReclaimable", 0) * KB
+        shared = info.get("Shmem", 0) * KB
+        available = info.get("MemAvailable", 0) * KB
+        used = max(total - free - buffers - cached_raw - sreclaimable, 0)
+        cache = max(cached_raw + sreclaimable - shared, 0)
+        return {
+            "total": total,
+            "used": used,
+            "shared": shared,
+            "buffers": buffers,
+            "cache": cache,
+            "free": free,
+            "available": available,
+        }
+
+    # 回退：用 psutil 字段近似
+    m = psutil.virtual_memory()
+    total = m.total
+    free = m.free
+    buffers = getattr(m, "buffers", 0) or 0
+    shared = getattr(m, "shared", 0) or 0
+    cached_raw = getattr(m, "cached", 0) or 0
+    cache = max(cached_raw - shared, 0)
+    used = max(total - free - buffers - cached_raw, 0)
+    return {
+        "total": total,
+        "used": used,
+        "shared": shared,
+        "buffers": buffers,
+        "cache": cache,
+        "free": free,
+        "available": m.available,
+    }
+
+
 def get_live_stats():
     """实时数据（供 htmx 定时轮询）"""
-    memory = psutil.virtual_memory()
     cpu = psutil.cpu_percent()
+    mem = _htop_memory()
+    total = mem["total"]
 
+    # 内存详情：口径与 htop / free 命令一致（used 不含可回收缓存）
     memory_detail = {
-        "total": _fmt_size(memory.total, 1),
-        "used": _fmt_size(memory.used, 3),
-        "shared": _fmt_size(getattr(memory, "shared", None), 3),
-        "cached": _fmt_size(getattr(memory, "cached", None), 3),
-        "available": _fmt_size(memory.available, 3),
-        "free": _fmt_size(memory.free, 3),
+        "total": _fmt_size(total, 1),
+        "used": _fmt_size(mem["used"], 3),
+        "shared": _fmt_size(mem["shared"], 3),
+        "buffers": _fmt_size(mem["buffers"], 3),
+        "cached": _fmt_size(mem["cache"], 3),
+        "free": _fmt_size(mem["free"], 3),
     }
+
+    # htop 风格堆叠条分段：已用 / 共享 / 缓冲 / 缓存；空闲由轨道留白呈现
+    mem_segments = []
+    for key, label, value in (
+        ("used", "已用", mem["used"]),
+        ("shared", "共享", mem["shared"]),
+        ("buffers", "缓冲", mem["buffers"]),
+        ("cache", "缓存", mem["cache"]),
+    ):
+        mem_segments.append(
+            {
+                "key": key,
+                "label": label,
+                "pct": round(value / total * 100, 2) if total else 0.0,
+                "text": f"{label} {_fmt_size(value, 3)}",
+            }
+        )
 
     swap = psutil.swap_memory()
 
@@ -172,14 +264,14 @@ def get_live_stats():
 
     return {
         "cpu_percent": cpu,
-        "memory_percent": memory.percent,
         "disk_percent": disk_primary["percent"] if disk_primary else 0,
         "cpu_use": f"{cpu}%",
-        "memory_used": _fmt_size(memory.total - memory.available, 3),
-        "memory_total": _fmt_size(memory.total, 1),
+        "memory_used": _fmt_size(mem["used"], 3),
+        "memory_total": _fmt_size(mem["total"], 1),
         "disk_used": disk_primary["used"] if disk_primary else "—",
         "disk_total": disk_primary["total"] if disk_primary else "—",
         "memory_detail": memory_detail,
+        "mem_segments": mem_segments,
         "disk_details": disk_details,
         "swap_used": _fmt_size(swap.used, 3),
         "swap_total": _fmt_size(swap.total, 1),

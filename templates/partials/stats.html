@@ -16,14 +16,19 @@
 	<div class="stat stat--mem" tabindex="0">
 		<span class="stat-label">内存</span>
 		<span class="stat-value" data-stat="memory-value">{{memory_used}} / {{memory_total}}</span>
-		<progress class="stat-bar" data-stat="memory-percent" value="{{memory_percent}}" max="100"></progress>
+		<!-- htop / free 风格堆叠条：已用·共享·缓冲·缓存，空闲留白 -->
+		<div class="stat-bar-seg" role="img" aria-label="内存构成">
+			{% for s in mem_segments %}
+			<i class="seg seg--{{ s.key }}" data-stat="mem-seg-{{ s.key }}" style="width:{{ s.pct }}%"></i>
+			{% endfor %}
+		</div>
 		<div class="stat-tip" role="tooltip">
 			<span class="stat-tip-title">内存详情</span>
 			<div class="stat-tip-row"><span>总数</span><b data-stat="mem-total">{{memory_detail.total}}</b></div>
-			<div class="stat-tip-row"><span>已用</span><b data-stat="mem-used">{{memory_detail.used}}</b></div>
+			<div class="stat-tip-row"><span>已用 · 不含缓存</span><b data-stat="mem-used">{{memory_detail.used}}</b></div>
 			<div class="stat-tip-row"><span>共享</span><b data-stat="mem-shared">{{memory_detail.shared}}</b></div>
-			<div class="stat-tip-row"><span>缓存</span><b data-stat="mem-cached">{{memory_detail.cached}}</b></div>
-			<div class="stat-tip-row"><span>可用</span><b data-stat="mem-available">{{memory_detail.available}}</b></div>
+			<div class="stat-tip-row"><span>缓冲</span><b data-stat="mem-buffers">{{memory_detail.buffers}}</b></div>
+			<div class="stat-tip-row"><span>缓存 · 可回收</span><b data-stat="mem-cached">{{memory_detail.cached}}</b></div>
 			<div class="stat-tip-row"><span>空闲</span><b data-stat="mem-free">{{memory_detail.free}}</b></div>
 		</div>
 	</div>

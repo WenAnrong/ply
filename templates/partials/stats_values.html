@@ -6,7 +6,7 @@
 <b data-stat="cpu-freq">{{cpu_detail.freq}}</b>
 <!-- 内存 -->
 <span data-stat="memory-value">{{memory_used}} / {{memory_total}}</span>
-<progress data-stat="memory-percent" value="{{memory_percent}}" max="100"></progress>
+{% for s in mem_segments %}<i data-stat="mem-seg-{{ s.key }}">{{ s.pct }}</i>{% endfor %}
 <!-- swap -->
 <span data-stat="swap-value">{{swap_used}} / {{swap_total}}</span>
 <!-- 磁盘 -->
@@ -15,8 +15,8 @@
 <span data-stat="mem-total">{{memory_detail.total}}</span>
 <span data-stat="mem-used">{{memory_detail.used}}</span>
 <span data-stat="mem-shared">{{memory_detail.shared}}</span>
+<span data-stat="mem-buffers">{{memory_detail.buffers}}</span>
 <span data-stat="mem-cached">{{memory_detail.cached}}</span>
-<span data-stat="mem-available">{{memory_detail.available}}</span>
 <span data-stat="mem-free">{{memory_detail.free}}</span>
 {% for d in disk_details %}
 <span data-stat="disk-{{loop.index0}}-mount">{{d.mount}}</span>

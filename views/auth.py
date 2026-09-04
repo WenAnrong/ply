@@ -16,6 +16,7 @@ from flask_login import login_required
 from flask_login import login_user
 from flask_login import logout_user
 
+from models import LoginLog
 from models import User
 from models import db
 
@@ -53,6 +54,23 @@ def _safe_next_url(raw):
     if "\\" in raw:
         return None
     return raw
+
+
+def _record_login_log(username, success, reason):
+    """写一条登录日志；写库失败静默回滚，绝不影响登录主流程。"""
+    try:
+        db.session.add(
+            LoginLog(
+                ip=_client_ip(),
+                username=(username or "")[:80],
+                success=success,
+                reason=reason,
+                user_agent=(request.headers.get("User-Agent") or "")[:256],
+            )
+        )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
 
 
 auth_bp = Blueprint("auth", __name__)
@@ -111,18 +129,19 @@ def login():
     if request.method == "POST":
         ip = _client_ip()
         now = time.time()
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
 
         # 锁定检查：在锁定时间内直接拒绝，不校验密码
         with _LOGIN_LOCK:
             rec = _LOGIN_ATTEMPTS.get(ip, {"fail": 0, "lock_until": 0})
             if rec["lock_until"] > now:
                 left = int(rec["lock_until"] - now) + 1
+                # 被限速拒绝的请求也记录，便于看清爆破节奏
+                _record_login_log(username, False, "locked")
                 return render_template(
                     "login.html", error=f"尝试次数过多，请 {left} 秒后再试"
                 )
-
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
 
         user = User.query.filter_by(username=username).first()
         if user is None or not user.check_password(password):
@@ -134,9 +153,11 @@ def login():
                     rec["fail"] = 0
                     rec["lock_until"] = now + _LOGIN_LOCK_SECONDS
                 _LOGIN_ATTEMPTS[ip] = rec
+            _record_login_log(username, False, "bad_credentials")
             error = "用户名或密码错误"
         else:
-            # 登录成功：直接清空失败计数表。
+            # 登录成功：记录日志后清空失败计数表
+            _record_login_log(username, True, "success")
             with _LOGIN_LOCK:
                 _LOGIN_ATTEMPTS.clear()
             login_user(user)

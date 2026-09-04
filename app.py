@@ -32,12 +32,14 @@ from views.website import website_bp
 # 运行环境标识（development / production，默认 development）
 _ENV = os.environ.get("FLASK_CONFIG", "development")
 
-# 用标准 logging 记录运行信息：开发环境 INFO 以上、生产 INFO 以上，
-# 输出带时间/级别，gunicorn worker 的日志经 stderr 进入 journald 便于分级查看。
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
-)
+# 用标准 logging 记录运行信息：输出带时间/级别，gunicorn worker 的日志经 stderr 进入 journald。
+# basicConfig 只挂一次 handler：避免多 worker 或 cleanup 定时脚本各自 import app 时重复给
+# root logger 添加 handler（若外层已配置过日志则直接复用，保持幂等）。
+if not logging.getLogger().handlers:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    )
 
 app = Flask(__name__)
 

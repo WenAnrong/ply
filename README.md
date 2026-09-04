@@ -2,7 +2,7 @@
 
 一个轻量的 Flask 服务器管理面板，提供系统资源监控、在线终端、Docker 管理、账号与安全设置等功能。
 
-![home](./home.png)
+![home](./home.jpg)
 
 ## 功能特性
 
@@ -11,6 +11,7 @@
 - **Docker 管理**：三个子页——服务、镜像、设置。
 - **网站管理**：编辑 Caddy 配置 + 临时站点（把本机端口通过 Caddy 暴露成临时访问地址，用后即关）。
 - **设置**：系统配置、用户管理等。
+- **登录日志**：记录每次登录尝试（成功 / 失败 / 触发限速锁定），用于排查是否被爆破；侧栏「登录日志」查看，日志每月自动清理。
 
 ## Docker 管理
 
@@ -61,6 +62,22 @@ http://*.example.com {
 改完后执行 `caddy reload`（或 `systemctl restart caddy`）。
 
 > 注意：面板保存 Caddy 配置与更新临时站点都使用 `caddy reload` 热加载，依赖 Caddy 的 admin API（默认 `localhost:2019`）在线。**请保持 Caddyfile 顶部不要加 `admin off`，也不要修改 `admin` 地址**；否则热加载会失败，导致保存配置后页面卡死、需要重启浏览器。
+
+
+## 登录日志
+
+面板会记录每次登录尝试（**含被登录限速拒绝的请求**），用于排查是否有人爆破你的面板。
+
+- **记录内容**：时间、用户名、来源 IP、结果（成功/失败）、原因（成功 / 密码错误或用户不存在 / 触发限速锁定）、User-Agent。
+- **查看**：侧栏「登录日志」，页面显示最近 **800 条**，支持「全部 / 只看失败」切换。
+- **保留与清理**：登录日志保留最近 **30 天**，更早的会在**每月 1 号 03:30** 由 systemd timer 自动删除：`ply-logclean.timer` → `ply-logclean.service` → 执行 `scripts/cleanup_login_logs.py`。保留天数可在 `scripts/cleanup_login_logs.py` 的 `_RETENTION_DAYS` 中调整（改后重启 timer 对应 service 即可）。
+
+常用命令：
+
+```bash
+systemctl list-timers ply-logclean.timer   # 查看下次清理时间
+systemctl start ply-logclean.service        # 立即手动清理一次
+```
 
 
 ## 系统要求

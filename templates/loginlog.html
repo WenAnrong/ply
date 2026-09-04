@@ -1,0 +1,61 @@
+<!-- 继承 base.html -->
+{% extends "base.html" %}
+
+<!-- 覆盖父模板的 title block -->
+{% block title %}登录日志 · ply面板{% endblock %}
+
+<!-- 覆盖页面标题 -->
+{% block page_title %}登录日志{% endblock %}
+
+<!-- 填充父模板的 content block -->
+{% block content %}
+	<div class="panel">
+		<div class="panel-header">登录日志（最近 800 条 · 本地时间）</div>
+		<div class="panel-body">
+			<p class="page-subtitle">
+				<a class="btn {% if not only_fail %}btn-primary{% endif %}" href="{{ url_for('setting.loginlog') }}">全部</a>
+				<a class="btn {% if only_fail %}btn-primary{% endif %}" href="{{ url_for('setting.loginlog', only=1) }}">只看失败</a>
+				<span class="page-subtitle"> 日志每月 1 号自动清理</span>
+			</p>
+
+			{% if logs %}
+			<table class="table">
+				<thead>
+					<tr>
+						<th style="width: 165px;">时间</th>
+						<th style="width: 110px;">用户名</th>
+						<th style="width: 140px;">IP</th>
+						<th style="width: 70px;">结果</th>
+						<th style="width: 170px;">说明</th>
+						<th>User-Agent</th>
+					</tr>
+				</thead>
+				<tbody>
+					{% for log in logs %}
+					<tr>
+						<td>{{ log.time }}</td>
+						<td><code>{{ log.username }}</code></td>
+						<td><code>{{ log.ip }}</code></td>
+						<td>
+							{% if log.success %}
+								<span class="status-up">成功</span>
+							{% else %}
+								<span class="status-down">失败</span>
+							{% endif %}
+						</td>
+						<td>{{ log.reason }}</td>
+						<td
+							class="log-ua"
+							title="{{ log.ua }}"
+							style="max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+						>{{ log.ua }}</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+			{% else %}
+				<p class="page-subtitle">暂无登录日志。</p>
+			{% endif %}
+		</div>
+	</div>
+{% endblock %}

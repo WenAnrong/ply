@@ -85,3 +85,30 @@ class TemporarySite(db.Model):
 
     def __repr__(self):
         return f"<TemporarySite {self.code}:{self.port}>"
+
+
+class LoginLog(db.Model):
+    """登录日志
+
+    记录每次登录尝试（含被限速拒绝的请求），用于事后排查是否有人爆破。
+    created_at 存 naive UTC（与 TemporarySite 一致），展示时转本地时间。
+    """
+
+    __tablename__ = "login_log"
+
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        index=True,
+    )
+    ip = db.Column(db.String(64), index=True)
+    # 尝试登录的用户名（可能不存在/为空）
+    username = db.Column(db.String(80), index=True)
+    success = db.Column(db.Boolean, nullable=False, default=False)
+    # 结果：success / bad_credentials / locked
+    reason = db.Column(db.String(32), nullable=False, default="bad_credentials")
+    user_agent = db.Column(db.String(256), nullable=True)
+
+    def __repr__(self):
+        return f"<LoginLog {self.ip} {self.username} success={self.success}>"

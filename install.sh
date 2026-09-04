@@ -272,6 +272,37 @@ EOF
   systemctl enable --now "${SERVICE_NAME}-temp-cleanup.timer"
 fi
 
+# ---------- 登录日志月度清理 timer（每月 1 号执行一次） ----------
+log "创建登录日志清理 systemd timer（每月 1 号 03:30）"
+cat > "/etc/systemd/system/${SERVICE_NAME}-logclean.service" <<EOF
+[Unit]
+Description=ply login log monthly cleanup
+After=network.target
+
+[Service]
+Type=oneshot
+User=$SERVICE_USER
+Group=$SERVICE_USER
+WorkingDirectory=$INSTALL_DIR
+Environment=FLASK_CONFIG=production
+Environment=PYTHONUNBUFFERED=1
+ExecStart=$INSTALL_DIR/.venv/bin/python scripts/cleanup_login_logs.py
+EOF
+cat > "/etc/systemd/system/${SERVICE_NAME}-logclean.timer" <<EOF
+[Unit]
+Description=Run ply login log cleanup on the 1st of every month
+
+[Timer]
+OnCalendar=*-*-01 03:30:00
+Persistent=true
+Unit=${SERVICE_NAME}-logclean.service
+
+[Install]
+WantedBy=timers.target
+EOF
+systemctl daemon-reload
+systemctl enable --now "${SERVICE_NAME}-logclean.timer"
+
 # ---------- 输出 ----------
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 PUBLIC_IP="$(curl -s --max-time 5 ifconfig.me 2>/dev/null || true)"
@@ -284,5 +315,6 @@ fi
 echo "  首次使用:   打开 /register 页面创建第一个管理员账户"
 echo "  服务管理:   systemctl status|restart|stop $SERVICE_NAME"
 echo "  日志查看:   journalctl -u $SERVICE_NAME -f"
+echo "  登录日志:   每月 1 号自动清理（systemctl list-timers ${SERVICE_NAME}-logclean.timer）"
 echo "  如需 HTTPS: 建议用 Caddy 反代上游"
 echo

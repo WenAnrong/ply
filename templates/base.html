@@ -62,6 +62,12 @@
 						</span>
 						<span>设置</span>
 					</a>
+					<a href="{{ url_for('setting.loginlog') }}" class="nav-link {% if request.path == '/setting/loginlog' %}active{% endif %}">
+						<span class="nav-ico">
+							<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="9" y1="7" x2="15" y2="7"/></svg>
+						</span>
+						<span>登录日志</span>
+					</a>
 					<a href="{{ url_for('about.index') }}" class="nav-link {% if request.path == '/about' %}active{% endif %}">
 						<span class="nav-ico">
 							<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>

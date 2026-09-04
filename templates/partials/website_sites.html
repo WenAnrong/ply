@@ -76,7 +76,7 @@
 						<td>{{ '在线' if site.status == 'active' else '已关闭' }}</td>
 						<td>
 							{% if site.status == 'active' %}
-								<button type="button" class="btn btn-icon" data-copy="{{ site_host }}" title="复制访问地址">复制</button>
+								<a href="{{ site_url }}" target="_blank" rel="noopener" class="btn btn-icon" title="访问临时站点">访问</a>
 								<form
 									method="post"
 									action="{{ url_for('website.close_temp_site', code=site.code) }}"

@@ -6,7 +6,7 @@
 <b data-stat="cpu-freq">{{cpu_detail.freq}}</b>
 <!-- 内存 -->
 <span data-stat="memory-value">{{memory_used}} / {{memory_total}}</span>
-<progress data-stat="memory-percent" value="{{memory_percent}}" max="100"></progress>
+{% for s in mem_segments %}<i data-stat="mem-seg-{{ s.key }}">{{ s.pct }}</i>{% endfor %}
 <!-- swap -->
 <span data-stat="swap-value">{{swap_used}} / {{swap_total}}</span>
 <!-- 磁盘 -->

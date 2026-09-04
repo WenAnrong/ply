@@ -20,6 +20,12 @@
     --primary-hover: #1b53c4;
     --primary-soft: rgba(32, 96, 223, 0.08);
 
+    /* 内存堆叠条：各构成段配色 */
+    --mem-seg-used: #e5484d;
+    --mem-seg-buffers: #3b82f6;
+    --mem-seg-cached: #f59e0b;
+    --mem-seg-free: #b9c1cf;
+
     /* 背景 & 表面 */
     --bg: #f4f6fb;
     --surface: #ffffff;
@@ -522,6 +528,44 @@ ol {
 .stat-bar::-moz-progress-bar {
     background: var(--primary);
     border-radius: 999px;
+}
+
+/* ---------- 内存彩色堆叠条 ---------- */
+/* 一条条里的每段 i 各占一个百分比，段与段之间不同颜色 */
+.stat-bar-seg {
+    display: block;
+    width: 100%;
+    height: 6px;
+    margin-top: 4px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--border);
+    font-size: 0;
+    /* 消除行内元素间的空白间隙 */
+    white-space: nowrap;
+}
+
+.stat-bar-seg i {
+    display: inline-block;
+    height: 100%;
+    vertical-align: top;
+    transition: width 0.3s ease;
+}
+
+.seg--used {
+    background: var(--mem-seg-used);
+}
+
+.seg--buffers {
+    background: var(--mem-seg-buffers);
+}
+
+.seg--cached {
+    background: var(--mem-seg-cached);
+}
+
+.seg--free {
+    background: var(--mem-seg-free);
 }
 
 /* 内存 / 磁盘 / CPU 统计悬浮详请 */

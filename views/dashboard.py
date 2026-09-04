@@ -146,6 +146,40 @@ def get_cpu_detail():
     }
 
 
+def _memory_segments(memory):
+    """内存构成分段（百分比），供彩色堆叠条使用。
+
+    四段：已用 used / 缓冲 buffers / 缓存 cached / 空闲 free。
+    注：个别平台上 psutil 的 used 与 cached 存在少量重叠，
+    因此统一按「四段字节之和」归一化，保证段宽度相加恒为 100%。
+    """
+    pieces = [
+        ("used", "已用", memory.used),
+        ("buffers", "缓冲", getattr(memory, "buffers", None)),
+        ("cached", "缓存", getattr(memory, "cached", None)),
+        ("free", "空闲", memory.free),
+    ]
+    values = []
+    for _key, _label, value in pieces:
+        values.append(int(value) if value else 0)
+
+    total = sum(values)
+    if not total:
+        return []
+
+    segments = []
+    for (key, label, _v), value in zip(pieces, values):
+        segments.append(
+            {
+                "key": key,
+                "label": label,
+                "pct": round(value / total * 100, 2),
+                "text": f"{label} {_fmt_size(value, 3)}",
+            }
+        )
+    return segments
+
+
 def get_live_stats():
     """实时数据（供 htmx 定时轮询）"""
     memory = psutil.virtual_memory()
@@ -180,6 +214,7 @@ def get_live_stats():
         "disk_used": disk_primary["used"] if disk_primary else "—",
         "disk_total": disk_primary["total"] if disk_primary else "—",
         "memory_detail": memory_detail,
+        "mem_segments": _memory_segments(memory),
         "disk_details": disk_details,
         "swap_used": _fmt_size(swap.used, 3),
         "swap_total": _fmt_size(swap.total, 1),

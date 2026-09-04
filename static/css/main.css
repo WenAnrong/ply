@@ -20,11 +20,9 @@
     --primary-hover: #1b53c4;
     --primary-soft: rgba(32, 96, 223, 0.08);
 
-    /* 内存堆叠条：各构成段配色 */
-    --mem-seg-used: #e5484d;
-    --mem-seg-buffers: #3b82f6;
-    --mem-seg-cached: #f59e0b;
-    --mem-seg-free: #b9c1cf;
+    /* 内存堆叠条：真实占用 / 可回收缓存；空闲留白 = 轨道底色 */
+    --mem-seg-used: #e5533b;
+    --mem-seg-reclaim: #f39c12;
 
     /* 背景 & 表面 */
     --bg: #f4f6fb;
@@ -556,16 +554,13 @@ ol {
     background: var(--mem-seg-used);
 }
 
-.seg--buffers {
-    background: var(--mem-seg-buffers);
+.seg--reclaim {
+    background: var(--mem-seg-reclaim);
 }
 
-.seg--cached {
-    background: var(--mem-seg-cached);
-}
-
-.seg--free {
-    background: var(--mem-seg-free);
+/* 相邻色块间加 1px 分隔线，细条上更容易辨认边界 */
+.stat-bar-seg i+i {
+    box-shadow: -1px 0 0 0 var(--surface);
 }
 
 /* 内存 / 磁盘 / CPU 统计悬浮详请 */

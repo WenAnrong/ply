@@ -147,28 +147,25 @@ def get_cpu_detail():
 
 
 def _memory_segments(memory):
-    """内存构成分段（百分比），供彩色堆叠条使用。
+    """内存条色块段占比（空闲段不返回，由轨道底色留白呈现）。
 
-    四段：已用 used / 缓冲 buffers / 缓存 cached / 空闲 free。
-    注：个别平台上 psutil 的 used 与 cached 存在少量重叠，
-    因此统一按「四段字节之和」归一化，保证段宽度相加恒为 100%。
+    段1 已用 used   = total - available  进程/内核真实占用，不可回收
+    段2 可回收缓存  = available - free   内存紧张时可让出的 page cache 等
+
+    恒等式：(total-available) + (available-free) = total - free
+    所以两段之和自然小于 100%，剩余宽度即 free（轨道底色）。
     """
-    pieces = [
-        ("used", "已用", memory.used),
-        ("buffers", "缓冲", getattr(memory, "buffers", None)),
-        ("cached", "缓存", getattr(memory, "cached", None)),
-        ("free", "空闲", memory.free),
-    ]
-    values = []
-    for _key, _label, value in pieces:
-        values.append(int(value) if value else 0)
-
-    total = sum(values)
+    total = memory.total
     if not total:
         return []
-
+    used = max(memory.total - memory.available, 0)
+    reclaim = max(memory.available - memory.free, 0)
+    pieces = [
+        ("used", "已用", used),
+        ("reclaim", "可回收缓存", reclaim),
+    ]
     segments = []
-    for (key, label, _v), value in zip(pieces, values):
+    for key, label, value in pieces:
         segments.append(
             {
                 "key": key,

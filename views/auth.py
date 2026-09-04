@@ -2,6 +2,9 @@
 认证模块：注册 / 登录 / 退出
 """
 
+import threading
+import time
+
 from flask import Blueprint
 from flask import redirect
 from flask import render_template
@@ -14,6 +17,21 @@ from flask_login import logout_user
 
 from models import User
 from models import db
+
+# ---- 登录失败限速：连续 5 次失败 → 锁定 30 秒 ----
+_LOGIN_LOCK = threading.Lock()
+_LOGIN_ATTEMPTS = {}  # ip -> {"fail": int, "lock_until": float}
+_LOGIN_MAX_FAILS = 5
+_LOGIN_LOCK_SECONDS = 30
+
+
+def _client_ip():
+    """获取客户端 IP；若处于可信反代之后则使用 X-Forwarded-For 首地址。"""
+    xff = request.headers.get("X-Forwarded-For", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.remote_addr or "unknown"
+
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -69,13 +87,36 @@ def login():
 
     error = None
     if request.method == "POST":
+        ip = _client_ip()
+        now = time.time()
+
+        # 锁定检查：在锁定时间内直接拒绝，不校验密码
+        with _LOGIN_LOCK:
+            rec = _LOGIN_ATTEMPTS.get(ip, {"fail": 0, "lock_until": 0})
+            if rec["lock_until"] > now:
+                left = int(rec["lock_until"] - now) + 1
+                return render_template(
+                    "login.html", error=f"尝试次数过多，请 {left} 秒后再试"
+                )
+
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
 
         user = User.query.filter_by(username=username).first()
         if user is None or not user.check_password(password):
+            # 连续失败计数，达到阈值则锁定 30 秒
+            with _LOGIN_LOCK:
+                rec = _LOGIN_ATTEMPTS.get(ip, {"fail": 0, "lock_until": 0})
+                rec["fail"] += 1
+                if rec["fail"] >= _LOGIN_MAX_FAILS:
+                    rec["fail"] = 0
+                    rec["lock_until"] = now + _LOGIN_LOCK_SECONDS
+                _LOGIN_ATTEMPTS[ip] = rec
             error = "用户名或密码错误"
         else:
+            # 登录成功，清除该 IP 的失败记录
+            with _LOGIN_LOCK:
+                _LOGIN_ATTEMPTS.pop(ip, None)
             login_user(user)
             # 优先跳转到被拦截的页面（?next=），否则回首页
             next_page = request.args.get("next")

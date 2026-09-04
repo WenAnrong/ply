@@ -389,15 +389,14 @@ def save_caddy_config():
         flash("写入失败：" + (write.stderr or "权限不足"), "error")
         return redirect(url_for("website.settings"))
 
-    # 缓冲：先把文件刷入磁盘，避免重启瞬间读到空/未写完的内容
+    # 缓冲：先把文件刷入磁盘，避免热加载瞬间读到空/未写完的内容
     _sudo(["sync"])
 
-    # 先清除可能已耗尽的启动限流，再重启 Caddy
-    _sudo(["systemctl", "reset-failed", "caddy"])
-    restart = _sudo(["systemctl", "restart", "caddy"])
-    if restart.returncode != 0:
-        flash("配置已保存，但 Caddy 重启失败：" + (restart.stderr or ""), "error")
+    # 优雅热加载 Caddy，不断开当前连接（依赖 admin API 在线）
+    ok, err = _reload_caddy()
+    if ok:
+        flash("Caddy 配置已更新（热加载）", "success")
     else:
-        flash("Caddy 配置已更新并重启", "success")
+        flash("配置已保存，但 Caddy 热加载失败：" + (err or ""), "error")
 
     return redirect(url_for("website.settings"))

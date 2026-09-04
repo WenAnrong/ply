@@ -74,7 +74,7 @@ http://*.example.com {
 
 生产安装时，若检测到 Caddy，`install.sh` 会创建一个 **systemd timer**（默认每 5 分钟）运行 `scripts/cleanup_temp_sites.py`，自动把过期站点下线并更新片段与 Caddy。
 
-> 注意：`caddy reload` 需要 Caddy 的 admin API（默认 localhost:2019）在线；若你关闭了 admin API，`reload` 会失败，可改用 `systemctl restart caddy`（会有短暂停机）。
+> 注意：面板保存 Caddy 配置与更新临时站点都使用 `caddy reload` 热加载，依赖 Caddy 的 admin API（默认 `localhost:2019`）在线。**请保持 Caddyfile 顶部不要加 `admin off`，也不要修改 `admin` 地址**；否则热加载会失败，可能触发 `systemctl restart caddy` 断连，导致保存配置后页面卡死、需要重启浏览器。
 
 
 ## 系统要求

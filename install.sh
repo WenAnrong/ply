@@ -37,6 +37,8 @@ PORT_MIN="${PLY_PORT_MIN:-12000}"
 PORT_MAX="${PLY_PORT_MAX:-25000}"
 # 面板配置文件（存放端口等；生产环境为 /etc/ply/config.ini）
 CONFIG_FILE="$CONFIG_DIR/config.ini"
+# Caddy 临时站点片段（面板自有文件，与 config.py 的 TEMP_SITE_SNIPPET_PATH 一致）
+CADDY_TEMP_SNIPPET="${CADDY_TEMP_SNIPPET:-/etc/caddy/ply-temp.caddy}"
 
 log() { echo; echo "==> $*"; }
 err() { echo "[错误] $*" >&2; exit 1; }
@@ -76,6 +78,14 @@ fi
 log "检查 Caddy（仅检测，不自动安装）"
 if command -v caddy >/dev/null 2>&1; then
   log "Caddy 已安装: $(caddy version 2>&1 | head -n1)"
+  # 确保面板自己的临时站点片段文件存在，否则 Caddy 的 import 会因文件缺失而启动失败
+  if [[ ! -e "$CADDY_TEMP_SNIPPET" ]]; then
+    log "创建临时站点片段文件: $CADDY_TEMP_SNIPPET"
+    cat > "$CADDY_TEMP_SNIPPET" <<'EOF'
+# ply 临时站点片段（由面板自动生成，请勿手改）
+# 请在你的 Caddyfile 的泛域名 site 块（如 *.example.com）内 import 本文件。
+EOF
+  fi
   log "启用并启动 Caddy 服务"
   sudo systemctl enable --now caddy
 else

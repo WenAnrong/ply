@@ -21,9 +21,9 @@
     --primary-soft: rgba(32, 96, 223, 0.08);
 
     /* 内存堆叠条（同 free 口径）各段配色：已用 / 共享 / 缓冲·缓存；空闲留白 */
-    --membar-used: #22a06b;
+    --membar-used: #3b82f6;
     --membar-shared: #f59e0b;
-    --membar-buffcache: #3b82f6;
+    --membar-buffcache: #22a06b;
 
     /* 背景 & 表面 */
     --bg: #f4f6fb;

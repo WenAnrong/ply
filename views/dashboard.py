@@ -227,9 +227,11 @@ def get_live_stats():
 
     # 内存详情：字段与 free -h 对齐（同 htop/free 口径）
     # buff/cache = Buffers + Cached + SReclaimable（= buffers + cache + shared）
+    # used_free = total - available（与 free 命令的 used 列一致）
     memory_detail = {
         "total": _fmt_size(total, 1),
         "used": _fmt_size(mem["used"], 3),
+        "used_free": _fmt_size(max(mem["total"] - mem["available"], 0), 3),
         "free": _fmt_size(mem["free"], 3),
         "shared": _fmt_size(mem["shared"], 3),
         "buffcache": _fmt_size(mem["buffers"] + mem["cache"] + mem["shared"], 3),

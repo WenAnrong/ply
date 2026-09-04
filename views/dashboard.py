@@ -225,23 +225,24 @@ def get_live_stats():
     mem = _htop_memory()
     total = mem["total"]
 
-    # 内存详情：口径与 htop / free 命令一致（used 不含可回收缓存）
+    # 内存详情：字段与 free -h 对齐（同 htop/free 口径）
+    # buff/cache = Buffers + Cached + SReclaimable（= buffers + cache + shared）
     memory_detail = {
         "total": _fmt_size(total, 1),
         "used": _fmt_size(mem["used"], 3),
-        "shared": _fmt_size(mem["shared"], 3),
-        "buffers": _fmt_size(mem["buffers"], 3),
-        "cached": _fmt_size(mem["cache"], 3),
         "free": _fmt_size(mem["free"], 3),
+        "shared": _fmt_size(mem["shared"], 3),
+        "buffcache": _fmt_size(mem["buffers"] + mem["cache"] + mem["shared"], 3),
+        "available": _fmt_size(mem["available"], 3),
     }
 
-    # htop 风格堆叠条分段：已用 / 共享 / 缓冲 / 缓存；空闲由轨道留白呈现
+    # 堆叠条分段：已用 + 共享 + 缓冲/缓存；空闲由轨道留白呈现
+    # 注：橙=共享(shared)，蓝段 buff/cache 不含 shared；二者之和 = free 的 buff/cache
     mem_segments = []
     for key, label, value in (
         ("used", "已用", mem["used"]),
         ("shared", "共享", mem["shared"]),
-        ("buffers", "缓冲", mem["buffers"]),
-        ("cache", "缓存", mem["cache"]),
+        ("buffcache", "缓冲/缓存", mem["buffers"] + mem["cache"]),
     ):
         mem_segments.append(
             {

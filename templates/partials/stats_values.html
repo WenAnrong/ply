@@ -14,10 +14,10 @@
 <progress data-stat="disk-percent" value="{{disk_percent}}" max="100"></progress>
 <span data-stat="mem-total">{{memory_detail.total}}</span>
 <span data-stat="mem-used">{{memory_detail.used}}</span>
-<span data-stat="mem-shared">{{memory_detail.shared}}</span>
-<span data-stat="mem-buffers">{{memory_detail.buffers}}</span>
-<span data-stat="mem-cached">{{memory_detail.cached}}</span>
 <span data-stat="mem-free">{{memory_detail.free}}</span>
+<span data-stat="mem-shared">{{memory_detail.shared}}</span>
+<span data-stat="mem-buffcache">{{memory_detail.buffcache}}</span>
+<span data-stat="mem-available">{{memory_detail.available}}</span>
 {% for d in disk_details %}
 <span data-stat="disk-{{loop.index0}}-mount">{{d.mount}}</span>
 <b data-stat="disk-{{loop.index0}}-percent">{{d.percent}}%</b>

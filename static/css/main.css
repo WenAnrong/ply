@@ -20,11 +20,10 @@
     --primary-hover: #1b53c4;
     --primary-soft: rgba(32, 96, 223, 0.08);
 
-    /* 内存堆叠条（htop/free 口径）各段配色 */
+    /* 内存堆叠条（同 free 口径）各段配色：已用 / 共享 / 缓冲·缓存；空闲留白 */
     --membar-used: #22a06b;
-    --membar-shared: #9aa3b2;
-    --membar-buffers: #3b82f6;
-    --membar-cache: #f59e0b;
+    --membar-shared: #f59e0b;
+    --membar-buffcache: #3b82f6;
 
     /* 背景 & 表面 */
     --bg: #f4f6fb;
@@ -560,17 +559,8 @@ ol {
     background: var(--membar-shared);
 }
 
-.seg--buffers {
-    background: var(--membar-buffers);
-}
-
-.seg--cache {
-    background: var(--membar-cache);
-}
-
-/* 相邻色块间加 1px 分隔线，细条上更容易辨认边界 */
-.stat-bar-seg i+i {
-    box-shadow: -1px 0 0 0 var(--surface);
+.seg--buffcache {
+    background: var(--membar-buffcache);
 }
 
 /* 内存 / 磁盘 / CPU 统计悬浮详请 */

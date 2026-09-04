@@ -211,9 +211,13 @@ fi
 
 # ---------- 输出 ----------
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+PUBLIC_IP="$(curl -s --max-time 5 ifconfig.me 2>/dev/null || true)"
 PORT="${BIND##*:}"
 log "安装完成"
 echo "  访问地址:   http://${IP:-<服务器IP>}:$PORT"
+if [[ -n "$PUBLIC_IP" ]]; then
+  echo "  公网访问:   http://$PUBLIC_IP:$PORT"
+fi
 echo "  首次使用:   打开 /register 页面创建第一个管理员账户"
 echo "  服务管理:   systemctl status|restart|stop $SERVICE_NAME"
 echo "  日志查看:   journalctl -u $SERVICE_NAME -f"

@@ -81,6 +81,35 @@ def _close_inherited_fds():
                 pass
 
 
+# tmux 鼠标滚动与历史条数配置项
+_TMUX_CONF_REQUIRED_LINES = [
+    "set -g mouse on",
+    "set -g history-limit 5000",
+]
+
+
+def _ensure_tmux_conf():
+    """确保服务用户家目录的 ~/.tmux.conf 带有鼠标滚动与历史条数配置。
+
+    文件不存在则创建；已存在时只补齐缺少的配置行，不覆盖用户其它设置。
+    """
+    conf_path = os.path.expanduser("~/.tmux.conf")
+    try:
+        if not os.path.exists(conf_path):
+            with open(conf_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(_TMUX_CONF_REQUIRED_LINES) + "\n")
+            return
+        with open(conf_path, "r", encoding="utf-8") as f:
+            existing = set(f.read().splitlines())
+        to_add = [line for line in _TMUX_CONF_REQUIRED_LINES if line not in existing]
+        if to_add:
+            with open(conf_path, "a", encoding="utf-8") as f:
+                f.write("\n".join(to_add) + "\n")
+    except OSError:
+        # 写入失败（如家目录不可写）时静默忽略，不影响终端主流程
+        pass
+
+
 def _spawn_terminal():
     """在一个全新 PTY 中启动 tmux 客户端，附加到持久会话。
 
@@ -88,6 +117,7 @@ def _spawn_terminal():
     客户端（WebSocket）断开后 tmux 会话仍会保留，重新进入时可恢复到上次的状态，实现「基于 tmux」的持久终端。
     环境中没有 tmux 时，回退为直接打开一个登录 shell。
     """
+    _ensure_tmux_conf()
     pid, fd = pty.fork()
     # pty.fork() 会复制当前进程：
     #   - 子进程（pid == 0）：控制终端已和伪终端从设备相连，准备运行命令

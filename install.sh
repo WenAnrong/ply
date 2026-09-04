@@ -134,6 +134,17 @@ log "创建服务用户 $SERVICE_USER"
 if ! id -u "$SERVICE_USER" >/dev/null 2>&1; then
   useradd --system --create-home --home-dir "/home/$SERVICE_USER" --shell /bin/bash "$SERVICE_USER"
 fi
+
+# ---------- 终端历史：为服务用户启用 tmux 鼠标滚动 ----------
+log "配置 $SERVICE_USER 的 tmux 鼠标滚动与历史"
+USER_HOME="$(getent passwd "$SERVICE_USER" 2>/dev/null | cut -d: -f6 || true)"
+USER_HOME="${USER_HOME:-/home/$SERVICE_USER}"
+cat > "$USER_HOME/.tmux.conf" <<'EOF'
+set -g mouse on
+set -g history-limit 5000
+EOF
+chown "$SERVICE_USER:$SERVICE_USER" "$USER_HOME/.tmux.conf"
+
 mkdir -p "$DATA_DIR" "$CONFIG_DIR"
 chown -R "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR" "$CONFIG_DIR"
 # 源码目录保持 root 所有，git(以 root 运行) 与属主一致，避免 "dubious ownership"

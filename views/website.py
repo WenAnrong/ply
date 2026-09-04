@@ -241,13 +241,13 @@ def _gen_code(length=10):
 
 
 def _apply_expired_retention():
-    """保留最新 1 条过期记录用于参考，删除其余（10 删 9，固定值）。"""
+    """保留最新 3 条过期记录用于参考，删除其余（固定值）。"""
     expired = (
         TemporarySite.query.filter(TemporarySite.status == "expired")
         .order_by(TemporarySite.created_at.desc())
         .all()
     )
-    for rec in expired[1:]:
+    for rec in expired[3:]:
         db.session.delete(rec)
     if expired:
         db.session.commit()
@@ -352,7 +352,7 @@ def close_temp_site(code):
     site.status = "expired"
     db.session.commit()
 
-    # 保留最新 1 条过期记录，删除其余
+    # 保留最新 3 条过期记录，删除其余
     _apply_expired_retention()
     domain = _detect_wildcard_domain()
     host = code + "." + domain if domain else code

@@ -11,9 +11,11 @@ import struct
 import termios
 import threading
 import time
+from urllib.parse import urlsplit
 
 from flask import Blueprint
 from flask import render_template
+from flask import request
 from flask_login import current_user
 
 from flask_sock import Sock
@@ -177,6 +179,28 @@ def _terminate_child(pid):
         pass
 
 
+def _origin_allowed():
+    """校验 WebSocket 握手请求的 Origin，防跨站 WebSocket 劫持（CSWSH）。
+
+    浏览器发起的握手一定会带 Origin 头：其 host 必须与本站 Host 一致（同站）
+    才放行；带 `null` Origin 或跨站地址一律拒绝。命令行等非浏览器客户端通常
+    不带 Origin，且无法携带本面板登录 cookie，视为低风险放行。
+    """
+    origin = request.headers.get("Origin")
+    if not origin:
+        return True
+    try:
+        parts = urlsplit(origin)
+    except ValueError:
+        return False
+    # 仅接受 http/https 同站来源；netloc 需与请求 Host 一致（大小写不敏感）
+    if parts.scheme not in ("http", "https"):
+        return False
+    if (parts.netloc or "").lower() != (request.host or "").lower():
+        return False
+    return True
+
+
 def _handle_terminal_ws(ws):
     """WebSocket 终端。
 
@@ -187,6 +211,14 @@ def _handle_terminal_ws(ws):
     if not current_user.is_authenticated:
         try:
             ws.close(message="未登录")
+        except Exception:
+            pass
+        return
+
+    # Origin 校验：拒绝跨站页面发起的 WebSocket 连接
+    if not _origin_allowed():
+        try:
+            ws.close(message="跨站连接被拒绝")
         except Exception:
             pass
         return

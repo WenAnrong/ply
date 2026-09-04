@@ -4,6 +4,7 @@
 
 import threading
 import time
+from urllib.parse import urlsplit
 
 from flask import Blueprint
 from flask import redirect
@@ -31,6 +32,27 @@ def _client_ip():
     if xff:
         return xff.split(",")[0].strip()
     return request.remote_addr or "unknown"
+
+
+def _safe_next_url(raw):
+    """校验登录后跳转地址，防开放重定向。
+
+    只允许站内相对路径（以单个 / 开头），拒绝带 scheme/netloc 的绝对地址、
+    `//` 协议相对地址，以及含反斜杠（部分浏览器会把 \\ 当 / 解析）的绕过形式。
+    """
+    if not raw:
+        return None
+    parts = urlsplit(raw)
+    # 无 scheme、无 netloc 才允许；path 必须以 "/" 开头（非空、非 "//"）
+    if parts.scheme or parts.netloc:
+        return None
+    path = parts.path
+    if not path.startswith("/") or path.startswith("//"):
+        return None
+    # 反斜杠可能被浏览器当正斜杠解析成 //host，一并拒绝
+    if "\\" in raw:
+        return None
+    return raw
 
 
 auth_bp = Blueprint("auth", __name__)
@@ -118,9 +140,10 @@ def login():
             with _LOGIN_LOCK:
                 _LOGIN_ATTEMPTS.pop(ip, None)
             login_user(user)
-            # 优先跳转到被拦截的页面（?next=），否则回首页
-            next_page = request.args.get("next")
-            if next_page and next_page.startswith("/"):
+            # 优先跳转到被拦截的页面（?next=），否则回首页。
+            # 只信任站内相对路径，防开放重定向。
+            next_page = _safe_next_url(request.args.get("next"))
+            if next_page:
                 return redirect(next_page)
             return redirect(url_for("dashboard.index"))
 

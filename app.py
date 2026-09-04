@@ -86,6 +86,15 @@ def inject_globals():
     return {"now_year": datetime.now().year}
 
 
+# 全局安全响应头：防 MIME 嗅探 / 点击劫持 / 跨站 Referer 泄露
+@app.after_request
+def security_headers(resp):
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["Referrer-Policy"] = "same-origin"
+    return resp
+
+
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(about_bp)
 app.register_blueprint(auth_bp)

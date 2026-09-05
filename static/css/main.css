@@ -1107,6 +1107,20 @@ code {
     color: var(--text-muted);
 }
 
+.svc-res {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.svc-res-value {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--text);
+    font-weight: 600;
+}
+
 .svc-ports {
     font-size: 0.8rem;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;

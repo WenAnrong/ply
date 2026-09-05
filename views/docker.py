@@ -150,11 +150,41 @@ def _list_images():
     return images, None
 
 
+def _container_mem_stats():
+    """采样运行中容器的实时内存占用。
+
+    返回 {容器名: {"mem": 已用内存字符串, "perc": 占比字符串}}。
+    docker stats 只统计运行中的容器；失败或无运行容器时返回 {}。
+    """
+    r = _sudo(
+        [
+            "docker",
+            "stats",
+            "--no-stream",
+            "--format",
+            "{{.Name}}\t{{.MemUsage}}\t{{.MemPerc}}",
+        ]
+    )
+    result = {}
+    if r.returncode != 0:
+        return result
+    for line in r.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+        # MemUsage 形如 "357.4MiB / 7.817GiB"，卡片只展示已用部分
+        used = parts[1].split(" / ")[0].strip()
+        perc = parts[2].strip() if len(parts) >= 3 else ""
+        result[parts[0]] = {"mem": used, "perc": perc}
+    return result
+
+
 def _list_containers():
     """列出容器，区分 compose 项目与普通容器。
 
     返回 (compose_projects, normal_containers, 错误信息)。
-    每个容器含 id/name/image/status/ports；compose 容器额外带 project/dir/config_files。
+    每个容器含 id/name/image/status/ports/mem/mem_perc；compose 容器额外带 project/dir/config_files。
+    内存字段仅在容器运行时有值（未运行容器为空字符串）。
     """
     r = _sudo(
         [
@@ -210,6 +240,13 @@ def _list_containers():
                     "dir": parts[2],
                     "config_files": parts[3],
                 }
+
+    # 采样运行中容器的实时内存占用，合并进每个容器行（未运行容器留空）
+    mem_map = _container_mem_stats()
+    for row in rows:
+        info = mem_map.get(row["name"]) or {}
+        row["mem"] = info.get("mem", "")
+        row["mem_perc"] = info.get("perc", "")
 
     projects = {}
     normal = []

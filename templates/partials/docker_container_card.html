@@ -6,6 +6,12 @@
 	<div class="svc-meta">
 		<code>{{ c.image }}</code> · <code>{{ c.id[:12] }}</code>
 	</div>
+	{% if c.mem %}
+		<div class="svc-res" title="实时内存占用">
+			<span class="svc-res-label">内存</span>
+			<span class="svc-res-value">{{ c.mem }}{% if c.mem_perc %}（{{ c.mem_perc }}）{% endif %}</span>
+		</div>
+	{% endif %}
 	{% if c.ports %}
 		<div class="svc-ports" title="端口映射">{{ c.ports }}</div>
 	{% endif %}

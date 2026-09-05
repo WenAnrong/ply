@@ -41,7 +41,7 @@
 	<div class="panel-header">临时站点</div>
 	<div class="panel-body">
 		{% if temp_site_domain %}
-			<div class="alert alert-info">当前泛域名：<code>*.{{ temp_site_domain }}</code>，每个临时站点将绑定到 <code>&lt;code&gt;.{{ temp_site_domain }}</code>。</div>
+			<div class="alert alert-info">当前泛域名：<code>*.{{ temp_site_domain }}</code></div>
 		{% else %}
 			<div class="alert alert-warning">未在主 Caddyfile 中识别到泛域名。请确保主 Caddyfile 中存在形如 <code>*.example.com { import {{ temp_snippet_path }} }</code> 的 site 块，否则临时站点无法作为子域名访问。</div>
 		{% endif %}
@@ -95,9 +95,6 @@
 					{% endfor %}
 				</tbody>
 			</table>
-			<p class="page-subtitle">
-				访问：按你的 Caddy 配置选择协议，例如 <code>http://&lt;code&gt;.{{ temp_site_domain if temp_site_domain else '你的域名' }}</code> 或 <code>https://&lt;code&gt;.{{ temp_site_domain if temp_site_domain else '你的域名' }}</code>（请提前为 <code>{{ wildcard_domain }}</code> 配置泛域名解析；若用 HTTPS 还需通配符证书）。
-			</p>
 		{% else %}
 			<p class="page-subtitle">暂无临时站点。在上方创建一个并绑定一个本机端口。</p>
 		{% endif %}

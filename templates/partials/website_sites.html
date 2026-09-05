@@ -65,10 +65,10 @@
 					<tr>
 						<td><a href="{{ site_url }}" target="_blank" rel="noopener"><code>{{ site_host }}</code></a></td>
 						<td><code>{{ site.port }}</code></td>
-						<td>{{ site.created_at.strftime('%Y-%m-%d %H:%M') if site.created_at else '' }}</td>
+						<td>{{ to_local(site.created_at).strftime('%Y-%m-%d %H:%M') if site.created_at else '' }}</td>
 						<td>
 							{% if site.expires_at %}
-								{{ site.expires_at.strftime('%Y-%m-%d %H:%M') }}
+								{{ to_local(site.expires_at).strftime('%Y-%m-%d %H:%M') }}
 							{% else %}
 								永久
 							{% endif %}

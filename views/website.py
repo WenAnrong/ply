@@ -253,6 +253,21 @@ def _apply_expired_retention():
         db.session.commit()
 
 
+def _site_time_local(utc_dt):
+    """把 TemporarySite 存的 UTC 时间转成本地时区的 naive datetime。
+
+    库里 created_at/expires_at 存的是 UTC：SQLite 读回为 naive（无 tzinfo），
+    个别场景内存里可能带着 UTC tzinfo。统一先当作 UTC，再用 astimezone()
+    转成系统本地时区并去掉 tzinfo，模板 strftime 展示的就是本地时间。
+    传 None 原样返回 None。
+    """
+    if utc_dt is None:
+        return None
+    if utc_dt.tzinfo is None:
+        utc_dt = utc_dt.replace(tzinfo=timezone.utc)
+    return utc_dt.astimezone().replace(tzinfo=None)
+
+
 @website_bp.route("/website")
 @login_required
 def index():
@@ -281,6 +296,7 @@ def index():
         "website.html",
         active_tab="sites",
         temp_sites=temp_sites,
+        to_local=_site_time_local,
         ttl_options=current_app.config["TEMP_SITE_TTL_OPTIONS"],
         temp_snippet_path=snippet_path,
         temp_snippet_example=temp_snippet_example,

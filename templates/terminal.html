@@ -29,6 +29,8 @@
 	/>
 	<script src="{{ url_for('static', filename='js/xterm/xterm.js') }}"></script>
 	<script src="{{ url_for('static', filename='js/xterm/addon-fit.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/xterm/addon-webgl.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/xterm/addon-canvas.js') }}"></script>
 
 	<script>
 		// IIFE（立即执行函数）：把变量都包在局部作用域里，避免污染全局
@@ -78,6 +80,19 @@
 				}
 			}
 
+			// 防抖：把窗口/容器频繁的 resize 收敛成最后一次（约 120ms），
+			// 避免拖动窗口/侧栏切换时每帧都 fit() + sendResize() 造成卡顿和刷屏
+			var fitTimer = null;
+			function debouncedFit() {
+				clearTimeout(fitTimer);
+				fitTimer = setTimeout(function () {
+					if (fitAddon) {
+						fitAddon.fit();
+					}
+					sendResize();
+				}, 120);
+			}
+
 			// 根据当前页面协议（http/https）拼出对应的 WebSocket 地址
 			var wsUrl =
 				(location.protocol === "https:" ? "wss://" : "ws://") +
@@ -107,6 +122,40 @@
 				term.loadAddon(fitAddon);
 				term.open(document.getElementById("terminal")); // 挂载到页面的 #terminal 元素
 				fitAddon.fit(); // 立即按当前容器大小适配
+
+				// 渲染加速：优先 WebGL（用浏览器 GPU 绘制，刷屏/滚动更流畅），
+				// 不支持或失败时回退 Canvas，最后兜底 xterm 默认的 DOM 渲染器。
+				// 注意：渲染插件需在 term.open() 之后加载（要基于已挂载的 DOM 创建 canvas）；
+				//      UMD 版 addon 暴露的是命名空间对象（WebglAddon.WebglAddon / CanvasAddon.CanvasAddon）。
+				var accelerated = false;
+				if (
+					typeof WebglAddon !== "undefined" &&
+					typeof WebglAddon.WebglAddon === "function"
+				) {
+					try {
+						var webglAddon = new WebglAddon.WebglAddon();
+						webglAddon.onContextLoss(function () {
+							// GPU 上下文丢失（如切换显卡/长时间后台）时仅记录，
+							// 插件会自动退回非 WebGL 渲染，不影响使用
+							console.warn("[terminal] WebGL 上下文丢失，已回退渲染");
+						});
+						term.loadAddon(webglAddon);
+						accelerated = true;
+					} catch (e) {
+						accelerated = false;
+					}
+				}
+				if (
+					!accelerated &&
+					typeof CanvasAddon !== "undefined" &&
+					typeof CanvasAddon.CanvasAddon === "function"
+				) {
+					try {
+						term.loadAddon(new CanvasAddon.CanvasAddon());
+					} catch (e) {
+						// WebGL 与 Canvas 都不可用：继续用默认 DOM 渲染器
+					}
+				}
 
 				// 建立 WebSocket 连接到后端
 				socket = new WebSocket(wsUrl);
@@ -139,18 +188,13 @@
 					}
 				});
 
-				// 终端尺寸变化（如 fit 后触发）：同步给后端
+				// 终端尺寸变化（如点击字号按钮 fit 后触发）：同步给后端
 				term.onResize(function () {
 					sendResize();
 				});
 
-				// 浏览器窗口缩放：重新适配并同步尺寸
-				window.addEventListener("resize", function () {
-					if (fitAddon) {
-						fitAddon.fit();
-					}
-					sendResize();
-				});
+				// 浏览器窗口缩放：防抖后重新适配并同步尺寸（避免拖动时高频触发）
+				window.addEventListener("resize", debouncedFit);
 			}
 
 			// 进入页面即启动终端（像 tty 一样）

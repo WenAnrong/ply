@@ -2,10 +2,12 @@
 终端模块
 """
 
+import codecs
 import fcntl
 import json
 import os
 import pty
+import select
 import signal
 import struct
 import termios
@@ -46,6 +48,21 @@ def _resize_pty(fd, rows, cols):
     except (ValueError, OSError):
         # 窗口尺寸非法或 ioctl 失败时静默忽略，不影响主流程
         pass
+
+
+def _write_pty(fd, data):
+    """把数据完整写入 PTY 主设备，处理可能的部分写入。
+
+    伪终端输入缓冲接近满时，os.write 可能只写入一部分字节（阻塞模式下
+    也可能被信号中断只写一半）。若不加循环，粘贴/大段输入会静默丢字符。
+    这里循环写到全部写完为止；写入返回 0 视为异常，避免死循环。
+    """
+    view = memoryview(data)
+    while view:
+        written = os.write(fd, view)
+        if written <= 0:
+            raise OSError("pty write returned 0")
+        view = view[written:]
 
 
 def _close_inherited_fds():
@@ -231,25 +248,49 @@ def _handle_terminal_ws(ws):
     stopped = threading.Event()
 
     def pump_output():
-        """后台线程：读取 PTY 输出并发送给浏览器。
+        """后台线程：读取 PTY 输出，攒批后发送给浏览器。
 
-        因为 os.read 是阻塞调用，如果放在主循环里，会收不到浏览器输入，
-        所以单独用一个线程持续读终端输出，通过 WebSocket 实时推给前端。
+        如果每读一块就发一个 WS 帧，连续输出（cat 大文件/docker logs 等）时
+        会产生大量小帧，服务器和浏览器都费 CPU。这里攒一小段时间（或攒到
+        一定量）再合帧发送，大幅减少帧数；同时用增量解码器，避免多字节
+        UTF-8（如中文）被切在帧边界导致乱码。
+
+        因为 os.read 是阻塞调用，如果放在主循环里会收不到浏览器输入，所以
+        单独用线程读终端输出；用 select 定时轮询，以便周期性刷出缓冲并
+        及时响应停止标记。
         """
+        decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+        buf = bytearray()
+        last_flush = time.time()
         try:
             while not stopped.is_set():
                 try:
-                    # 从伪终端主设备读最多 4096 字节（终端里有输出时才会返回）
-                    data = os.read(fd, 4096)
+                    # 只等 10ms：没输出也能定期回来刷缓冲/检查退出标记
+                    readable, _, _ = select.select([fd], [], [], 0.01)
+                    if readable:
+                        # 一次尽量多读，减少系统调用次数
+                        data = os.read(fd, 65536)
+                        if not data:  # 返回空字节说明子进程退出、流结束
+                            break
+                        buf += data
                 except OSError:
-                    break  # 读到错误（如 fd 已关闭），结束线程
-                if not data:  # 返回空字节说明子进程退出、流结束
-                    break
-                # 把字节解码成文本发送给浏览器；遇到无法解码的字节用替换符替代
-                ws.send(data.decode("utf-8", errors="replace"))
+                    break  # 读到错误（如 fd 已关闭），结束读取
+                now = time.time()
+                # 攒够一定量或超过约 12ms 就合帧发送一次
+                if buf and (len(buf) >= 65536 or now - last_flush >= 0.012):
+                    ws.send(decoder.decode(bytes(buf)))
+                    buf.clear()
+                    last_flush = now
         except Exception:
             pass
         finally:
+            # 收尾：把残留缓冲尽量发完（连接已关闭时忽略发送异常）
+            if buf:
+                try:
+                    ws.send(decoder.decode(bytes(buf), final=True))
+                    buf.clear()
+                except Exception:
+                    pass
             # 无论正常结束还是异常，都置位“停止标记”
             stopped.set()
 
@@ -284,11 +325,11 @@ def _handle_terminal_ws(ws):
                         cols = int(payload.get("cols", 80))
                         _resize_pty(fd, rows, cols)
                         continue  # 消费掉这条控制消息，不写入终端
-                # 普通文本：编码为 UTF-8 后写入 PTY，等价于用户敲键盘
-                os.write(fd, message.encode("utf-8"))
+                # 普通文本：编码为 UTF-8 后完整写入 PTY（防部分写入丢字符）
+                _write_pty(fd, message.encode("utf-8"))
             else:
-                # 二进制消息：直接写入 PTY
-                os.write(fd, message)
+                # 二进制消息：完整写入 PTY
+                _write_pty(fd, message)
     except Exception:
         pass
     finally:

@@ -47,7 +47,7 @@
 		{% endif %}
 
 		{% if temp_sites %}
-			<table class="table">
+			<table class="table table-cards">
 				<thead>
 					<tr>
 						<th>子域名</th>
@@ -63,18 +63,18 @@
 					{% set site_host = site.code + '.' + temp_site_domain if temp_site_domain else site.code %}
 					{% set site_url = (temp_site_scheme or 'https') + '://' + site_host %}
 					<tr>
-						<td><a href="{{ site_url }}" target="_blank" rel="noopener"><code>{{ site_host }}</code></a></td>
-						<td><code>{{ site.port }}</code></td>
-						<td>{{ to_local(site.created_at).strftime('%Y-%m-%d %H:%M') if site.created_at else '' }}</td>
-						<td>
+						<td data-label="子域名"><a href="{{ site_url }}" target="_blank" rel="noopener"><code>{{ site_host }}</code></a></td>
+						<td data-label="端口"><code>{{ site.port }}</code></td>
+						<td data-label="创建时间">{{ to_local(site.created_at).strftime('%Y-%m-%d %H:%M') if site.created_at else '' }}</td>
+						<td data-label="过期时间">
 							{% if site.expires_at %}
 								{{ to_local(site.expires_at).strftime('%Y-%m-%d %H:%M') }}
 							{% else %}
 								永久
 							{% endif %}
 						</td>
-						<td>{{ '在线' if site.status == 'active' else '已关闭' }}</td>
-						<td>
+						<td data-label="状态">{{ '在线' if site.status == 'active' else '已关闭' }}</td>
+						<td data-label="操作">
 							{% if site.status == 'active' %}
 								<a href="{{ site_url }}" target="_blank" rel="noopener" class="btn btn-icon" title="访问临时站点">访问</a>
 								<form

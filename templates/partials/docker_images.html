@@ -6,7 +6,7 @@
 		{% endif %}
 
 		{% if docker_images %}
-			<table class="table">
+			<table class="table table-cards">
 				<thead>
 					<tr>
 						<th>镜像</th>
@@ -18,10 +18,10 @@
 				<tbody>
 					{% for img in docker_images %}
 					<tr>
-						<td><code>{{ img.name }}</code></td>
-						<td><code>{{ img.id }}</code></td>
-						<td>{{ img.size }}</td>
-						<td>
+						<td data-label="镜像"><code>{{ img.name }}</code></td>
+						<td data-label="ID"><code>{{ img.id }}</code></td>
+						<td data-label="大小">{{ img.size }}</td>
+						<td data-label="操作">
 							<form
 								method="post"
 								action="{{ url_for('docker.delete_docker_image') }}"

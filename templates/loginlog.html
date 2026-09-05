@@ -19,7 +19,7 @@
 			</p>
 
 			{% if logs %}
-			<table class="table">
+			<table class="table table-cards">
 				<thead>
 					<tr>
 						<th style="width: 165px;">时间</th>
@@ -33,22 +33,18 @@
 				<tbody>
 					{% for log in logs %}
 					<tr>
-						<td>{{ log.time }}</td>
-						<td><code>{{ log.username }}</code></td>
-						<td><code>{{ log.ip }}</code></td>
-						<td>
+						<td data-label="时间">{{ log.time }}</td>
+						<td data-label="用户名"><code>{{ log.username }}</code></td>
+						<td data-label="IP"><code>{{ log.ip }}</code></td>
+						<td data-label="结果">
 							{% if log.success %}
 								<span class="status-up">成功</span>
 							{% else %}
 								<span class="status-down">失败</span>
 							{% endif %}
 						</td>
-						<td>{{ log.reason }}</td>
-						<td
-							class="log-ua"
-							title="{{ log.ua }}"
-							style="max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
-						>{{ log.ua }}</td>
+						<td data-label="说明">{{ log.reason }}</td>
+						<td class="log-ua" data-label="User-Agent" title="{{ log.ua }}">{{ log.ua }}</td>
 					</tr>
 					{% endfor %}
 				</tbody>

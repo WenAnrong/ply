@@ -1007,6 +1007,14 @@ textarea:focus {
     letter-spacing: 0.03em;
 }
 
+/* 登录日志 User-Agent 单元格：桌面端超长省略（移动端卡片里放开换行） */
+.log-ua {
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* 行内小表单（如每行的删除按钮） */
 .inline-form {
     display: inline;
@@ -1242,6 +1250,77 @@ code {
 
     .terminal-toolbar {
         flex-wrap: wrap;
+    }
+
+    /* ---------- 复杂表格 → 手机卡片 ----------
+       登录日志 / 网站临时站点 / Docker 镜像等多列表格，
+       窄屏隐藏表头，把每一行渲染成一张卡片（字段带标签）。
+       桌面（>768px）仍是普通表格。 */
+    .table-cards thead {
+        display: none;
+    }
+
+    .table-cards,
+    .table-cards tbody,
+    .table-cards tr,
+    .table-cards td {
+        display: block;
+        width: 100%;
+    }
+
+    .table-cards {
+        border-collapse: collapse;
+    }
+
+    .table-cards tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .table-cards tr {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+
+    .table-cards td {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        min-width: 0;
+        padding: 8px 14px;
+        border-bottom: 1px dashed var(--border);
+    }
+
+    .table-cards tr td:last-child {
+        border-bottom: none;
+    }
+
+    .table-cards td::before {
+        content: attr(data-label);
+        flex: 0 0 auto;
+        color: var(--text-muted);
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+    }
+
+    /* 卡片内允许长内容（域名 / UA 等）断行 */
+    .table-cards td code,
+    .table-cards td a {
+        overflow-wrap: anywhere;
+    }
+
+    /* User-Agent：桌面省略 → 卡片内放开换行完整展示 */
+    .table-cards td.log-ua {
+        max-width: none;
+        overflow: visible;
+        text-overflow: clip;
+        white-space: normal;
     }
 }
 

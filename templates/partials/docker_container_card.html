@@ -9,7 +9,7 @@
 	{% if c.mem %}
 		<div class="svc-res" title="实时内存占用">
 			<span class="svc-res-label">内存</span>
-			<span class="svc-res-value">{{ c.mem }}{% if c.mem_perc %}（{{ c.mem_perc }}）{% endif %}</span>
+			<span class="svc-res-value" data-mem="{{ c.name }}">{{ c.mem }}{% if c.mem_perc %}（{{ c.mem_perc }}）{% endif %}</span>
 		</div>
 	{% endif %}
 	{% if c.ports %}

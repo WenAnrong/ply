@@ -1,0 +1,5 @@
+<!-- 内存实时刷新用：每个运行中容器一个 <span data-mem="容器名">最新内存</span>。
+     此 partial 会注入隐藏容器 #docker-mem-update，由前端 JS 定点更新可见卡片。 -->
+{% for name, v in mem_values.items() %}
+<span data-mem="{{ name }}">{{ v.mem }}{% if v.perc %}（{{ v.perc }}）{% endif %}</span>
+{% endfor %}

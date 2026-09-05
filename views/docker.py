@@ -359,6 +359,22 @@ def services():
     )
 
 
+@docker_bp.route("/docker/services/mem")
+@login_required
+def services_mem():
+    """返回运行中容器的实时内存值 partial，供服务页定时轮询（仿仪表盘）。
+
+    不读容器列表缓存，直接采样 docker stats，保证每次轮询都拿到新数值。
+    返回的 partial 里每个运行容器一个 <span data-mem="容器名">，由前端 JS
+    定点更新可见卡片上的内存文本，避免整卡重建。
+    """
+    mem_values = {}
+    docker_ok, _, _ = _cached_install_state()
+    if docker_ok:
+        mem_values = _container_mem_stats()
+    return render_template("partials/docker_mem_values.html", mem_values=mem_values)
+
+
 @docker_bp.route("/docker/services/start", methods=["POST"])
 @login_required
 def container_start():

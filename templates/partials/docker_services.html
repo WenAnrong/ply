@@ -2,6 +2,7 @@
 	<div class="alert alert-error">{{ docker_services_error }}</div>
 {% endif %}
 
+<div id="docker-services-live">
 {% if compose_projects %}
 <div class="panel">
 	<div class="panel-header">Compose 项目</div>
@@ -64,6 +65,18 @@
 {% if not compose_projects and not normal_containers and not docker_services_error %}
 	<p class="page-subtitle">暂无容器</p>
 {% endif %}
+</div><!-- /#docker-services-live -->
+
+{% if docker_installed is defined and docker_installed %}
+<!-- 内存实时刷新（仿仪表盘）：隐藏容器只接收最新数值，JS 定点更新可见卡片，避免整块重建 -->
+<div
+	id="docker-mem-update"
+	hx-get="{{ url_for('docker.services_mem') }}"
+	hx-trigger="every 3s"
+	hx-swap="innerHTML"
+	hidden
+></div>
+{% endif %}
 
 <script>
 	(function () {
@@ -72,5 +85,18 @@
 				if (!confirm(form.getAttribute("data-confirm"))) e.preventDefault();
 			});
 		});
+		// 内存实时刷新：把 #docker-mem-update 拉到的最新值写到可见卡片上（仿仪表盘）
+		var memUpdater = document.getElementById("docker-mem-update");
+		if (memUpdater) {
+			memUpdater.addEventListener("htmx:afterSwap", function () {
+				memUpdater.querySelectorAll("[data-mem]").forEach(function (src) {
+					var name = src.getAttribute("data-mem");
+					var dst = document.querySelector(
+						'#docker-services-live [data-mem="' + name + '"]'
+					);
+					if (dst) dst.textContent = src.textContent;
+				});
+			});
+		}
 	})();
 </script>

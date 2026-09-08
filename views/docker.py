@@ -355,13 +355,16 @@ def _find_compose_project(name):
 
 
 def _plausible_ref(image_ref):
-    """把容器镜像引用整理成可查询 registry 的 repo:tag；无法定位返回 None。
+    """把容器启动时的镜像引用整理成可查询 registry 的 repo:tag；无法定位返回 None。
 
-    docker ps 的 {{.Image}} 是容器启动时用的引用；若它是 sha256:...（镜像已变悬空）
-    或 <none>，就没有可查的远端源，返回 None 交给调用方按「本地/无法检测」处理。
+    应传 .Config.Image（容器创建时的引用，pull 新镜像不会改写它）：一旦用户
+    pull 了新版本，旧镜像失去 tag 变成悬空，docker ps 的镜像列会变成
+    <none>/sha256，那种值不能当远端候选。形如 sha256:.../<none>（悬空）或
+    含 @sha256:（固定 digest 启动）的引用没有可自动判断的 tag 更新通道，
+    返回 None 交给调用方按「本地/无远端源」处理。
     """
     ref = (image_ref or "").strip()
-    if not ref or "<none>" in ref:
+    if not ref or "<none>" in ref or "@sha256:" in ref:
         return None
     if re.match(r"^sha256:[0-9a-f]{64}$", ref):
         return None
@@ -371,24 +374,33 @@ def _plausible_ref(image_ref):
     return ref
 
 
-def _container_actual_image_ids(container_ids):
-    """批量取容器实际运行的镜像 ID，返回 {容器名: 镜像ID}。
+def _container_image_info(container_ids):
+    """批量取容器镜像信息，返回 {容器名: {"id": 实际运行镜像ID, "config_image": 启动时引用}}。
 
-    不能直接用 docker ps 的 {{.Image}} 引用做本地基准：那只是启动时的引用字符串，
-    若用户随后手动 pull 过同名 tag，引用会指向新镜像而容器仍跑旧镜像。
-    用容器 inspect 的 {{.Image}}（实际镜像 ID）才能准确反映「容器此刻跑的版本」。
+    .Image         = 容器实际运行的镜像 ID：pull 同名新镜像不会改它，作本地 digest 基准
+                     （避免「本地 tag 已被 pull 指向新版而容器仍跑旧版」时误判成最新）；
+    .Config.Image  = 容器创建时的镜像引用（如 nginx:latest）：同样不受 pull 影响，
+                     作远端 registry 查询的候选引用。
     """
     res = {}
     ids = list(dict.fromkeys(container_ids))
     if not ids:
         return res
-    r = _sudo(["docker", "inspect", *ids, "--format", "{{.Name}}\t{{.Image}}"])
+    r = _sudo(
+        [
+            "docker",
+            "inspect",
+            *ids,
+            "--format",
+            "{{.Name}}\t{{.Image}}\t{{.Config.Image}}",
+        ]
+    )
     if r.returncode != 0:
         return res
     for line in r.stdout.splitlines():
         parts = line.split("\t")
-        if len(parts) == 2:
-            res[parts[0].lstrip("/")] = parts[1]
+        if len(parts) == 3:
+            res[parts[0].lstrip("/")] = {"id": parts[1], "config_image": parts[2]}
     return res
 
 
@@ -480,18 +492,23 @@ def _detect_container_updates(projects, normal_containers):
     if not rows:
         return
 
-    # 1) 每个容器实际运行的镜像 ID
-    actual = _container_actual_image_ids([r["id"] for r in rows])
+    # 1) 每个容器：实际运行的镜像 ID + 创建时的镜像引用
+    info_map = _container_image_info([r["id"] for r in rows])
     # 2) 这些镜像的本地 RepoDigest（作为「当前跑的版本」基准）
-    repo_digests = _image_repo_digests([i for i in actual.values() if i])
+    repo_digests = _image_repo_digests(
+        [v["id"] for v in info_map.values() if v.get("id")]
+    )
 
     # 3) 远端 digest：先按候选引用去重收集，再并发查询
     memo = {}  # ref -> digest or None
     refs = []
     for r in rows:
-        iid = actual.get(r["name"])
+        info = info_map.get(r["name"]) or {}
+        iid = info.get("id")
         local = (repo_digests.get(iid) or []) if iid else []
-        ref = _plausible_ref(r["image"])
+        # 远端候选用 .Config.Image（启动时引用，pull 不影响）；docker ps 的镜像列
+        # 在 pull 后旧镜像会变悬空，不能作为候选。
+        ref = _plausible_ref(info.get("config_image"))
         if not local or not ref:
             # 本地构建（无 registry 摘要）或引用无法定位远端：无「更新」概念
             r["update_state"] = "local"

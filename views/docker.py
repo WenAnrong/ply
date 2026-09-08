@@ -3,11 +3,13 @@ Docker 管理模块
 """
 
 import json
+import logging
 import os
 import re
 import subprocess
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from flask import Blueprint
 from flask import flash
@@ -19,8 +21,18 @@ from flask_login import login_required
 
 docker_bp = Blueprint("docker", __name__)
 
+logger = logging.getLogger(__name__)
+
 # Docker 守护进程配置文件
 DOCKER_DAEMON_JSON = "/etc/docker/daemon.json"
+
+# ---- 镜像更新检测（只读，不改动任何运行状态）----
+_REMOTE_INSPECT_TIMEOUT = (
+    10  # 秒：单次远端 registry digest 查询超时，registry 不可达时不能拖慢页面
+)
+_UPDATE_MAX_WORKERS = (
+    5  # 并行查询远端 digest 的线程数（同引用会去重，通常只需查 1~3 个）
+)
 
 # ---- Docker 安装状态 / 容器列表 / 镜像列表 短 TTL 缓存 ----
 # 这些页面每次刷新都会跑 sudo docker ps / inspect / compose 探测等子进程，
@@ -83,15 +95,22 @@ def _read_daemon_json():
         return "{}", True, f"读取失败：{e}"
 
 
-def _sudo(args, stdin=None, cwd=None):
+def _sudo(args, stdin=None, cwd=None, timeout=None):
     """以服务用户通过免密 sudo 执行系统命令，避免卡在密码输入。"""
-    return subprocess.run(
-        ["sudo", "-n", *args],
-        input=stdin,
-        capture_output=True,
-        text=True,
-        cwd=cwd,
-    )
+    try:
+        return subprocess.run(
+            ["sudo", "-n", *args],
+            input=stdin,
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        # 超时按失败处理：registry 不可达/网络卡住时绝不能挂住请求线程
+        return subprocess.CompletedProcess(
+            args, returncode=124, stdout="", stderr="命令执行超时"
+        )
 
 
 # Docker 未安装时给出的友好提示，引导用户查阅 README
@@ -332,6 +351,184 @@ def _find_compose_project(name):
     return None
 
 
+# ============ 镜像更新检测（只读） ============
+
+
+def _plausible_ref(image_ref):
+    """把容器镜像引用整理成可查询 registry 的 repo:tag；无法定位返回 None。
+
+    docker ps 的 {{.Image}} 是容器启动时用的引用；若它是 sha256:...（镜像已变悬空）
+    或 <none>，就没有可查的远端源，返回 None 交给调用方按「本地/无法检测」处理。
+    """
+    ref = (image_ref or "").strip()
+    if not ref or "<none>" in ref:
+        return None
+    if re.match(r"^sha256:[0-9a-f]{64}$", ref):
+        return None
+    # 没带 tag 的短引用补 :latest（docker run 后 config 一般已是 repo:latest，这里兜底）
+    if ":" not in ref:
+        ref += ":latest"
+    return ref
+
+
+def _container_actual_image_ids(container_ids):
+    """批量取容器实际运行的镜像 ID，返回 {容器名: 镜像ID}。
+
+    不能直接用 docker ps 的 {{.Image}} 引用做本地基准：那只是启动时的引用字符串，
+    若用户随后手动 pull 过同名 tag，引用会指向新镜像而容器仍跑旧镜像。
+    用容器 inspect 的 {{.Image}}（实际镜像 ID）才能准确反映「容器此刻跑的版本」。
+    """
+    res = {}
+    ids = list(dict.fromkeys(container_ids))
+    if not ids:
+        return res
+    r = _sudo(["docker", "inspect", *ids, "--format", "{{.Name}}\t{{.Image}}"])
+    if r.returncode != 0:
+        return res
+    for line in r.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) == 2:
+            res[parts[0].lstrip("/")] = parts[1]
+    return res
+
+
+def _image_repo_digests(image_ids):
+    """批量查镜像的 RepoDigests，返回 {镜像ID: [sha256,...]}。
+
+    RepoDigest 是该镜像从 registry 拉取时记录的固定摘要（仓库级 digest），
+    与「容器当前实际跑的版本」一一对应，最适合当本地基准。
+    镜像被删/部分丢失时逐个重试，查不到的跳过。
+    """
+    out = {}
+    unique = list(dict.fromkeys(image_ids))
+    if not unique:
+        return out
+
+    fmt = "{{.Id}}\t{{range .RepoDigests}}{{.}},{{end}}"
+
+    def _merge(stdout):
+        for line in stdout.splitlines():
+            parts = line.split("\t")
+            if len(parts) < 2 or not parts[0].startswith("sha256:"):
+                continue
+            digests = []
+            for item in (parts[1] or "").split(","):
+                item = item.strip()
+                if "@sha256:" in item:
+                    digests.append(item.rsplit("@sha256:", 1)[1])
+            if digests:
+                out[parts[0]] = digests
+
+    r = _sudo(["docker", "image", "inspect", *unique, "--format", fmt])
+    if r.returncode == 0:
+        _merge(r.stdout)
+        return out
+    # 个别镜像可能已无法 inspect（被删而容器残留），逐个尝试尽量取回其余结果
+    for iid in unique:
+        rr = _sudo(["docker", "image", "inspect", iid, "--format", fmt])
+        if rr.returncode == 0 and rr.stdout.strip():
+            _merge(rr.stdout)
+    return out
+
+
+def _remote_digest(ref):
+    """查询 ref 在远端 registry 的仓库 digest（sha256:...）。
+
+    返回 (digest 或 None, 错误信息)。只读、不下载镜像、走 docker 现成的登录态。
+    优先 buildx imagetools inspect（直接给索引 digest）；不可用时用
+    docker manifest inspect --verbose 的 Descriptor.digest 兜底。
+    """
+    r = _sudo(
+        ["docker", "buildx", "imagetools", "inspect", ref],
+        timeout=_REMOTE_INSPECT_TIMEOUT,
+    )
+    if r.returncode == 0:
+        m = re.search(r"Digest:\s*(sha256:[0-9a-f]{64})", r.stdout)
+        if m:
+            return m.group(1), None
+    r2 = _sudo(
+        ["docker", "manifest", "inspect", "--verbose", ref],
+        timeout=_REMOTE_INSPECT_TIMEOUT,
+    )
+    if r2.returncode == 0 and r2.stdout.strip():
+        try:
+            data = json.loads(r2.stdout)
+            digest = (data.get("Descriptor") or {}).get("digest")
+            if digest:
+                return digest, None
+        except (ValueError, TypeError):
+            pass
+    err = (r.stderr or r2.stderr or "").strip()
+    return None, err or "无法查询远端 registry"
+
+
+def _detect_container_updates(projects, normal_containers):
+    """为每个容器行填充镜像更新检测结果（只读，不改任何容器）。
+
+    compose 项目容器与普通容器共用同一套逻辑——本质上都是「容器实际跑的镜像
+    与 registry 上该 tag 的当前 digest 是否一致」：
+      - digest 一致              -> update_state=latest  update_label=最新
+      - digest 不一致            -> update_state=update  update_label=可更新
+      - 本地构建 / 无远端源       -> update_state=local   （不显示徽标）
+      - 远端查询失败              -> update_state=unknown （不显示徽标）
+    远端查询按唯一引用去重并并发执行，避免多个容器共用同一镜像时重复打 registry。
+    """
+    rows = []
+    for p in projects:
+        rows.extend(p["containers"])
+    rows.extend(normal_containers)
+    if not rows:
+        return
+
+    # 1) 每个容器实际运行的镜像 ID
+    actual = _container_actual_image_ids([r["id"] for r in rows])
+    # 2) 这些镜像的本地 RepoDigest（作为「当前跑的版本」基准）
+    repo_digests = _image_repo_digests([i for i in actual.values() if i])
+
+    # 3) 远端 digest：先按候选引用去重收集，再并发查询
+    memo = {}  # ref -> digest or None
+    refs = []
+    for r in rows:
+        iid = actual.get(r["name"])
+        local = (repo_digests.get(iid) or []) if iid else []
+        ref = _plausible_ref(r["image"])
+        if not local or not ref:
+            # 本地构建（无 registry 摘要）或引用无法定位远端：无「更新」概念
+            r["update_state"] = "local"
+            r["update_label"] = ""
+            continue
+        r["_img_id"] = iid
+        r["_ref"] = ref
+        if ref not in memo:
+            memo[ref] = None
+            refs.append(ref)
+
+    if refs:
+        with ThreadPoolExecutor(max_workers=_UPDATE_MAX_WORKERS) as ex:
+            results = ex.map(_remote_digest, refs)
+        for ref, (digest, _err) in zip(refs, results):
+            memo[ref] = digest
+
+    # 4) 回填判定结果
+    for r in rows:
+        ref = r.pop("_ref", None)
+        iid = r.pop("_img_id", None)
+        if not ref or not iid:
+            continue
+        local = repo_digests.get(iid) or []
+        remote = memo.get(ref)
+        if not local or not remote:
+            r["update_state"] = "unknown"
+            r["update_label"] = ""
+            continue
+        if remote == local[0]:
+            r["update_state"] = "latest"
+            r["update_label"] = "最新"
+        else:
+            r["update_state"] = "update"
+            r["update_label"] = "可更新"
+
+
 @docker_bp.route("/docker")
 @login_required
 def index():
@@ -346,6 +543,12 @@ def services():
     projects, normal, err = [], [], None
     if docker_ok:
         projects, normal, err = _cached_list_containers()
+        # 只读「镜像更新」检测（进入服务页时执行）；失败只告警，绝不影响列表展示
+        if not err:
+            try:
+                _detect_container_updates(projects, normal)
+            except Exception as e:  # noqa: BLE001 —— 检测是加分项，不能拖垮页面
+                logger.warning("镜像更新检测失败：%s", e)
     if install_msg:
         err = install_msg
     return render_template(

@@ -1088,6 +1088,7 @@ code {
     align-items: center;
     justify-content: space-between;
     gap: 10px;
+    flex-wrap: wrap;
 }
 
 .svc-name {
@@ -1095,6 +1096,17 @@ code {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.svc-flags {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .svc-status {
@@ -1108,6 +1120,26 @@ code {
 
 .status-down {
     color: var(--text-muted);
+}
+
+/* 镜像更新检测徽标：latest=绿（最新），update=橙（可更新） */
+.svc-update {
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.5;
+    padding: 1px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.svc-update-latest {
+    background: rgba(34, 160, 88, 0.12);
+    color: #1f7a45;
+}
+
+.svc-update-update {
+    background: rgba(230, 140, 20, 0.16);
+    color: #a05a00;
 }
 
 .svc-meta {

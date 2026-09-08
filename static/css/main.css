@@ -1142,6 +1142,11 @@ code {
     color: #a05a00;
 }
 
+.svc-update-unknown {
+    background: var(--primary-soft);
+    color: var(--text-muted);
+}
+
 .svc-meta {
     font-size: 0.8rem;
     color: var(--text-muted);

@@ -17,7 +17,7 @@
 
 Docker 模块遵循「**只读展示 + 快捷开关**」的轻量路线，创建、配置与拉取等操作交给面板内置终端。
 
-- **服务页镜像更新检测**：进入 Docker「服务」页时，会对 Compose 项目与普通容器的每个容器做只读更新检测。更新容器仍需在面板内置终端执行 `docker compose pull` + `docker compose up -d`（或 `docker pull` + 重建）。
+- **服务页镜像更新检测**：进入 Docker「服务」页时，会对 Compose 项目与普通容器的每个容器做只读更新检测（对比本地与远端 registry digest，不下载镜像）。已最新显示绿色「最新」，远端有新版本显示橙色「可更新」，远端查询失败显示灰色「检测失败」，本地构建/无远端源则不显示。更新容器仍需在面板内置终端执行 `docker compose pull` + `docker compose up -d`（或 `docker pull` + 重建）。
 
 
 ## 网站管理（临时站点）

@@ -443,12 +443,35 @@ def _image_repo_digests(image_ids):
     return out
 
 
+def _first_sha_digest(obj):
+    """在 manifest inspect 输出里递归找第一个 sha256 digest（兼容不同 Docker 版本结构）。
+
+    docker manifest inspect --verbose 的顶层结构在不同 Docker 版本/镜像类型下有差异
+    （有的在 Descriptor.digest，有的在别处）。这里宽松递归，避免解析失败导致恒判
+    「检测失败」。
+    """
+    if isinstance(obj, dict):
+        d = obj.get("digest")
+        if isinstance(d, str) and re.fullmatch(r"sha256:[0-9a-f]{64}", d):
+            return d
+        for v in obj.values():
+            hit = _first_sha_digest(v)
+            if hit:
+                return hit
+    elif isinstance(obj, list):
+        for v in obj:
+            hit = _first_sha_digest(v)
+            if hit:
+                return hit
+    return None
+
+
 def _remote_digest(ref):
     """查询 ref 在远端 registry 的仓库 digest（sha256:...）。
 
     返回 (digest 或 None, 错误信息)。只读、不下载镜像、走 docker 现成的登录态。
     优先 buildx imagetools inspect（直接给索引 digest）；不可用时用
-    docker manifest inspect --verbose 的 Descriptor.digest 兜底。
+    docker manifest inspect --verbose 兜底（递归找 digest，兼容各版本结构）。
     """
     r = _sudo(
         ["docker", "buildx", "imagetools", "inspect", ref],
@@ -465,7 +488,7 @@ def _remote_digest(ref):
     if r2.returncode == 0 and r2.stdout.strip():
         try:
             data = json.loads(r2.stdout)
-            digest = (data.get("Descriptor") or {}).get("digest")
+            digest = _first_sha_digest(data)
             if digest:
                 return digest, None
         except (ValueError, TypeError):
@@ -535,10 +558,15 @@ def _detect_container_updates(projects, normal_containers):
         local = repo_digests.get(iid) or []
         remote = memo.get(ref)
         if not local or not remote:
+            # 远端查询失败/registry 不可达：明确提示，避免用户误以为功能没生效
             r["update_state"] = "unknown"
-            r["update_label"] = ""
+            r["update_label"] = "检测失败"
             continue
-        if remote == local[0]:
+        # 归一化后比较：remote 形如 "sha256:xxx"（带前缀），repo_digests 存的
+        # local 是不带 "sha256:" 前缀的 hex。直接 == 会永远不等导致永远「可更新」。
+        local_sha = (local[0] or "").split(":", 1)[-1].lower()
+        remote_sha = (remote or "").split(":", 1)[-1].lower()
+        if local_sha and local_sha == remote_sha:
             r["update_state"] = "latest"
             r["update_label"] = "最新"
         else:

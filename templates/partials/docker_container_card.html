@@ -8,6 +8,8 @@
 					class="svc-update svc-update-{{ c.update_state }}"
 					{% if c.update_state == 'update' %}
 						title="镜像 {{ c.image }} 在远端已有更新，可在内置终端 pull 后重建容器"
+					{% elif c.update_state == 'unknown' %}
+						title="无法连接镜像仓库确认 {{ c.image }} 是否有更新，请检查服务器到 registry 的网络"
 					{% else %}
 						title="镜像 {{ c.image }} 已是最新"
 					{% endif %}

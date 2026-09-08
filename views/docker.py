@@ -203,8 +203,9 @@ def _list_containers():
     """列出容器，区分 compose 项目与普通容器。
 
     返回 (compose_projects, normal_containers, 错误信息)。
-    每个容器含 id/name/image/status/ports/mem/mem_perc；compose 容器额外带 project/dir/config_files。
-    内存字段仅在容器运行时有值（未运行容器为空字符串）。
+    每个容器含 id/name/image/status/ports；compose 容器额外带 project/dir/config_files。
+    注意：这里不再采样内存（docker stats 较慢，约 2s），内存由 services_mem 端点
+    每 3 秒异步轮询填充到卡片，避免拖慢进入服务页。
     """
     r = _sudo(
         [
@@ -261,13 +262,8 @@ def _list_containers():
                     "config_files": parts[3],
                 }
 
-    # 采样运行中容器的实时内存占用，合并进每个容器行（未运行容器留空）
-    mem_map = _container_mem_stats()
-    for row in rows:
-        info = mem_map.get(row["name"]) or {}
-        row["mem"] = info.get("mem", "")
-        row["mem_perc"] = info.get("perc", "")
-
+    # 内存不再在此同步采样（docker stats 较慢，约 2s）——由 services_mem 端点
+    # 每 3 秒异步轮询并定点填充进卡片，避免拖慢进入服务页。
     projects = {}
     normal = []
     for row in rows:

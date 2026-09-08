@@ -20,10 +20,10 @@
 	<div class="svc-meta">
 		<code>{{ c.config_image or c.image }}</code> · <code>{{ c.id[:12] }}</code>
 	</div>
-	{% if c.mem %}
-		<div class="svc-res" title="实时内存占用">
+	{% if c.status.startswith('Up') %}
+		<div class="svc-res" title="实时内存占用（自动刷新）">
 			<span class="svc-res-label">内存</span>
-			<span class="svc-res-value" data-mem="{{ c.name }}">{{ c.mem }}{% if c.mem_perc %}（{{ c.mem_perc }}）{% endif %}</span>
+			<span class="svc-res-value" data-mem="{{ c.name }}">—</span>
 		</div>
 	{% endif %}
 	{% if c.ports %}

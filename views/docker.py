@@ -443,6 +443,34 @@ def _image_repo_digests(image_ids):
     return out
 
 
+def _image_local_ids(refs):
+    """批量查镜像引用当前在本地指向的镜像 ID，返回 {ref: 镜像ID}。
+
+    用于「容器实际跑的镜像 ID != 本地 tag 当前指向的镜像 ID」这一判据：
+    用户 pull 新镜像后，tag 会指向新 ID，而容器仍跑旧 ID —— 即使旧镜像的
+    RepoDigest 已被清空，也能据此判定「可更新」。ref 本地不存在/查询失败时跳过。
+    """
+    out = {}
+    unique = list(dict.fromkeys([r for r in refs if r]))
+    if not unique:
+        return out
+
+    fmt = "{{.Id}}"
+    r = _sudo(["docker", "image", "inspect", *unique, "--format", fmt])
+    if r.returncode == 0:
+        lines = r.stdout.splitlines()
+        for token, iid in zip(unique, lines):
+            v = iid.strip()
+            if v:
+                out[token] = v
+        return out
+    for t in unique:
+        rr = _sudo(["docker", "image", "inspect", t, "--format", fmt])
+        if rr.returncode == 0 and rr.stdout.strip():
+            out[t] = rr.stdout.strip()
+    return out
+
+
 def _first_sha_digest(obj):
     """在 manifest inspect 输出里递归找第一个 sha256 digest（兼容不同 Docker 版本结构）。
 
@@ -522,26 +550,29 @@ def _detect_container_updates(projects, normal_containers):
         [v["id"] for v in info_map.values() if v.get("id")]
     )
 
-    # 3) 远端 digest：先按候选引用去重收集，再并发查询
+    # 3) 候选引用收集（远端查询 + 本地 tag 指向 ID 都需要，按引用去重）
     memo = {}  # ref -> digest or None
     refs = []
     for r in rows:
         info = info_map.get(r["name"]) or {}
         iid = info.get("id")
-        local = (repo_digests.get(iid) or []) if iid else []
         # 远端候选用 .Config.Image（启动时引用，pull 不影响）；docker ps 的镜像列
         # 在 pull 后旧镜像会变悬空，不能作为候选。
         ref = _plausible_ref(info.get("config_image"))
-        if not local or not ref:
-            # 本地构建（无 registry 摘要）或引用无法定位远端：无「更新」概念
+        if not ref:
+            # 引用无法定位远端（悬空/sha256/digest 启动）：无「更新」概念
             r["update_state"] = "local"
             r["update_label"] = ""
             continue
-        r["_img_id"] = iid
+        r["_img_id"] = iid or ""
         r["_ref"] = ref
+        r["config_image"] = info.get("config_image") or ""  # 供模板显示真实 tag
         if ref not in memo:
             memo[ref] = None
             refs.append(ref)
+
+    # 本地 tag 当前指向的镜像 ID（pull 后即指向新镜像）
+    local_ids = _image_local_ids(refs)
 
     if refs:
         with ThreadPoolExecutor(max_workers=_UPDATE_MAX_WORKERS) as ex:
@@ -549,29 +580,46 @@ def _detect_container_updates(projects, normal_containers):
         for ref, (digest, _err) in zip(refs, results):
             memo[ref] = digest
 
-    # 4) 回填判定结果
+    # 4) 回填判定结果（优先级从强到弱）
     for r in rows:
         ref = r.pop("_ref", None)
         iid = r.pop("_img_id", None)
-        if not ref or not iid:
+        if not ref:
             continue
-        local = repo_digests.get(iid) or []
+        local_rd = repo_digests.get(iid) or []
+        local_img = local_ids.get(ref)
         remote = memo.get(ref)
-        if not local or not remote:
-            # 远端查询失败/registry 不可达：明确提示，避免用户误以为功能没生效
-            r["update_state"] = "unknown"
-            r["update_label"] = "检测失败"
-            continue
-        # 归一化后比较：remote 形如 "sha256:xxx"（带前缀），repo_digests 存的
-        # local 是不带 "sha256:" 前缀的 hex。直接 == 会永远不等导致永远「可更新」。
-        local_sha = (local[0] or "").split(":", 1)[-1].lower()
-        remote_sha = (remote or "").split(":", 1)[-1].lower()
-        if local_sha and local_sha == remote_sha:
-            r["update_state"] = "latest"
-            r["update_label"] = "最新"
-        else:
+
+        # ① 容器实际跑的镜像 ID != 本地 tag 当前指向的镜像 ID
+        #    -> 容器没跑当前 tag 的镜像（最常见：pull 后未重建），必「可更新」
+        #    （不依赖 RepoDigest/网络，即使旧镜像 RepoDigest 已空也能判定）
+        if local_img and iid and iid != local_img:
             r["update_state"] = "update"
             r["update_label"] = "可更新"
+            continue
+
+        # ② 容器镜像有 RepoDigest 且远端查到 -> digest 精确对比
+        if local_rd and remote:
+            # 归一化：remote 形如 "sha256:xxx"（带前缀），local 为不带前缀的 hex
+            local_sha = (local_rd[0] or "").split(":", 1)[-1].lower()
+            remote_sha = (remote or "").split(":", 1)[-1].lower()
+            if local_sha and local_sha == remote_sha:
+                r["update_state"] = "latest"
+                r["update_label"] = "最新"
+            else:
+                r["update_state"] = "update"
+                r["update_label"] = "可更新"
+            continue
+
+        # ③ 容器 == 本地 tag 镜像 但无 registry 摘要 -> 本地构建，无更新概念
+        if local_img and not local_rd:
+            r["update_state"] = "local"
+            r["update_label"] = ""
+            continue
+
+        # ④ 其余：远端查询失败或信息不足 -> 明确提示，避免误以为功能没生效
+        r["update_state"] = "unknown"
+        r["update_label"] = "检测失败"
 
 
 @docker_bp.route("/docker")

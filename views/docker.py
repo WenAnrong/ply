@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from flask import Blueprint
 from flask import flash
+from flask import jsonify
 from flask import redirect
 from flask import render_template
 from flask import request
@@ -636,12 +637,6 @@ def services():
     projects, normal, err = [], [], None
     if docker_ok:
         projects, normal, err = _cached_list_containers()
-        # 只读「镜像更新」检测（进入服务页时执行）；失败只告警，绝不影响列表展示
-        if not err:
-            try:
-                _detect_container_updates(projects, normal)
-            except Exception as e:  # noqa: BLE001 —— 检测是加分项，不能拖垮页面
-                logger.warning("镜像更新检测失败：%s", e)
     if install_msg:
         err = install_msg
     return render_template(
@@ -653,6 +648,36 @@ def services():
         docker_installed=docker_ok,
         docker_compose_installed=compose_ok,
     )
+
+
+@docker_bp.route("/docker/services/update-check")
+@login_required
+def services_update_check():
+    """异步镜像更新检测（供服务页 JS fetch 调用）。
+
+    进入服务页时不再同步跑检测（避免 registry 网络查询阻塞页面渲染），而是渲染后
+    由前端 fetch 本端点，稍后把结果（徽标 + 镜像 tag）定点填充到各卡片。
+    不缓存：每次进入都重新检测，保证拿到最新状态。
+    """
+    if not _cached_install_state()[0]:
+        return jsonify({})
+    projects, normal, err = _cached_list_containers()
+    if err:
+        return jsonify({})
+    try:
+        _detect_container_updates(projects, normal)
+    except Exception as e:  # noqa: BLE001 —— 检测是加分项，失败只返回空
+        logger.warning("镜像更新检测失败：%s", e)
+        return jsonify({})
+    rows = [c for p in projects for c in p["containers"]] + normal
+    result = {}
+    for r in rows:
+        result[r["name"]] = {
+            "state": r.get("update_state", ""),
+            "label": r.get("update_label", ""),
+            "config_image": r.get("config_image", ""),
+        }
+    return jsonify(result)
 
 
 @docker_bp.route("/docker/services/mem")

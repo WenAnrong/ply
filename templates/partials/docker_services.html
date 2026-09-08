@@ -100,3 +100,44 @@
 		}
 	})();
 </script>
+
+<script>
+	// 异步镜像更新检测：进入服务页即渲染不阻塞，再由本脚本 fetch 检测端点，
+	// 结果定点填充到各卡片（徽标 + 镜像 tag），不缓存、每次进入都重新检测。
+	(function () {
+		var cardArea = document.getElementById("docker-services-live");
+		if (!cardArea) return;
+		fetch("{{ url_for('docker.services_update_check') }}")
+			.then(function (r) { return r.json(); })
+			.then(function (data) {
+				Object.keys(data).forEach(function (name) {
+					var it = data[name];
+					if (!it) return;
+					var card = cardArea.querySelector('.svc-card[data-name="' + name + '"]');
+					if (!card) return;
+					// 镜像显示：用真实 tag 替代悬空镜像 ID
+					if (it.config_image) {
+						var code = card.querySelector(".svc-meta code");
+						if (code) code.textContent = it.config_image;
+					}
+					// 徽标：先清掉旧徽标，再按结果插入
+					var flags = card.querySelector(".svc-flags");
+					if (!flags) return;
+					flags.querySelectorAll(".svc-update").forEach(function (x) { x.remove(); });
+					if (!it.label) return;
+					var span = document.createElement("span");
+					span.className = "svc-update svc-update-" + (it.state || "");
+					span.textContent = it.label;
+					if (it.state === "update") {
+						span.title = "镜像 " + it.config_image + " 在远端已有更新，可在内置终端 pull 后重建容器";
+					} else if (it.state === "unknown") {
+						span.title = "无法连接镜像仓库确认 " + it.config_image + " 是否有更新，请检查服务器到 registry 的网络";
+					} else {
+						span.title = "镜像 " + it.config_image + " 已是最新";
+					}
+					flags.appendChild(span);
+				});
+			})
+			.catch(function () { /* 忽略：下次进入会自动重新触发 */ });
+	})();
+</script>
